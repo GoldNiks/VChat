@@ -49,7 +49,7 @@ public class TabListHandler {
         if (prefix.isEmpty()) return;
 
         Scoreboard board = player.getScoreboard();
-        String teamName = "glc_" + player.getUUID().toString().replace("-", "").substring(0, 8);
+        String teamName = "vc_" + player.getUUID().toString().replace("-", "").substring(0, 8);
         PlayerTeam team = board.getPlayerTeam(teamName);
         if (team == null) {
             team = board.addPlayerTeam(teamName);
@@ -61,7 +61,7 @@ public class TabListHandler {
 
     private void removeTeamPrefix(ServerPlayer player) {
         Scoreboard board = player.getScoreboard();
-        String teamName = "glc_" + player.getUUID().toString().replace("-", "").substring(0, 8);
+        String teamName = "vc_" + player.getUUID().toString().replace("-", "").substring(0, 8);
         PlayerTeam team = board.getPlayerTeam(teamName);
         if (team != null) {
             board.removePlayerFromTeam(player.getScoreboardName(), team);

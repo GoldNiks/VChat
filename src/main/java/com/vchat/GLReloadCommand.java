@@ -1,7 +1,5 @@
 package com.vchat;
 
-import com.mojang.brigadier.CommandDispatcher;
-import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.event.RegisterCommandsEvent;
@@ -20,7 +18,7 @@ public class GLReloadCommand {
                             for (var player : server.getPlayerList().getPlayers()) {
                                 TabListHandler.sendTabList(player);
                             }
-                            ctx.getSource().sendSuccess(() -> Component.literal("§aVChat tab config reloaded"), true);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§aVChat config reloaded"), true);
                             return 1;
                         })
                 )
