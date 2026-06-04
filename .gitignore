@@ -4,3 +4,6 @@ run/
 *.iml
 .idea/
 .DS_Store
+
+body.json
+release-body.json
