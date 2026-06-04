@@ -8,9 +8,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class VChatTabConfig {
-    public String header = "\n&6&l&n\n\n&7Игроки: &a%online%\n\n&7&m-----------------";
-    public String footer = "&7&m-----------------\n\n&7\n&7Баланс: &e0";
-    public String joinMessage = "&aДобро пожаловать на &6&l&n&a!";
+    public String header = "\n&6&l&nVChat\n\n&7Игроки: &a%online%\n\n&7&m-----------------";
+    public String footer = "&7&m-----------------\n\n&7Баланс: &e0";
+    public String joinMessage = "&aДобро пожаловать на &6&l&nVChat&a!";
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
     private static VChatTabConfig instance = null;
