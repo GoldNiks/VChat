@@ -72,13 +72,16 @@ public class TabListHandler {
     public static void sendTabList(ServerPlayer player) {
         int online = player.getServer().getPlayerList().getPlayerCount();
         int max = player.getServer().getPlayerList().getMaxPlayers();
+        String playerName = player.getDisplayName().getString();
 
         String h = VChatTabConfig.header()
                 .replace("%online%", String.valueOf(online))
-                .replace("%max%", String.valueOf(max));
+                .replace("%max%", String.valueOf(max))
+                .replace("%player%", playerName);
         String f = VChatTabConfig.footer()
                 .replace("%online%", String.valueOf(online))
-                .replace("%max%", String.valueOf(max));
+                .replace("%max%", String.valueOf(max))
+                .replace("%player%", playerName);
 
         player.connection.send(new ClientboundTabListPacket(HexUtil.fromLegacy(h), HexUtil.fromLegacy(f)));
     }

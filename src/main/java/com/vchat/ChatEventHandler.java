@@ -2,7 +2,6 @@ package com.vchat;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -27,7 +26,7 @@ public class ChatEventHandler {
     @SubscribeEvent
     public void onRegisterCommands(RegisterCommandsEvent event) {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
-        dispatcher.register(Commands.literal("g")
+        dispatcher.register(Commands.literal(VChatTabConfig.globalCommand())
                 .then(Commands.argument("message", StringArgumentType.greedyString())
                         .executes(ctx -> {
                             CommandSourceStack src = ctx.getSource();
@@ -53,15 +52,17 @@ public class ChatEventHandler {
         }
     }
 
-    private Component name(ServerPlayer player) {
-        return player.getDisplayName().copy();
+    private Component format(String pattern, ServerPlayer player, String message) {
+        String text = pattern
+                .replace("<name>", player.getDisplayName().getString())
+                .replace("<message>", message);
+        return HexUtil.fromLegacy(text);
     }
 
     private void broadcastGlobal(ServerPlayer sender, String message) {
-        Component text = Component.literal("[G] ").withStyle(ChatFormatting.YELLOW)
-                .append(name(sender))
-                .append(Component.literal(": ").withStyle(ChatFormatting.GRAY))
-                .append(HexUtil.fromLegacy(message));
+        if (!VChatTabConfig.enableGlobalChat()) return;
+
+        Component text = format(VChatTabConfig.globalChatFormat(), sender, message);
 
         for (ServerPlayer p : sender.getServer().getPlayerList().getPlayers()) {
             p.sendSystemMessage(text);
@@ -70,22 +71,22 @@ public class ChatEventHandler {
     }
 
     private void broadcastLocal(ServerPlayer sender, String message) {
-        Component text = Component.literal("[L] ").withStyle(ChatFormatting.GRAY)
-                .append(name(sender))
-                .append(Component.literal(": ").withStyle(ChatFormatting.GRAY))
-                .append(HexUtil.fromLegacy(message));
+        if (!VChatTabConfig.enableLocalChat()) return;
 
+        Component text = format(VChatTabConfig.localChatFormat(), sender, message);
+        int radius = VChatTabConfig.localChatRadius();
         boolean heard = false;
+
         for (ServerPlayer p : sender.getServer().getPlayerList().getPlayers()) {
             if (p == sender) continue;
-            if (p.distanceTo(sender) <= 100.0) {
+            if (p.distanceTo(sender) <= radius) {
                 p.sendSystemMessage(text);
                 heard = true;
             }
         }
 
-        if (!heard) {
-            sender.sendSystemMessage(Component.literal("\u0412\u0430\u0441 \u043D\u0438\u043A\u0442\u043E \u043D\u0435 \u0443\u0441\u043B\u044B\u0448\u0430\u043B"));
+        if (!heard && VChatTabConfig.mentionNoOneHeard()) {
+            sender.sendSystemMessage(HexUtil.fromLegacy(VChatTabConfig.noOneHeardMessage()));
         }
         sender.sendSystemMessage(text);
         LOGGER.info(text.getString());
