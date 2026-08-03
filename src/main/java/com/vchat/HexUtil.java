@@ -2,7 +2,6 @@ package com.vchat;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
-import net.minecraft.server.level.ServerPlayer;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -80,18 +79,4 @@ public class HexUtil {
         };
     }
 
-    public static String getLpPrefix(ServerPlayer player) {
-        try {
-            Object api = Class.forName("net.luckperms.api.LuckPermsProvider").getMethod("get").invoke(null);
-            Object userManager = api.getClass().getMethod("getUserManager").invoke(api);
-            Object user = userManager.getClass().getMethod("getUser", java.util.UUID.class).invoke(userManager, player.getUUID());
-            if (user == null) return "";
-            Object cachedData = user.getClass().getMethod("getCachedData").invoke(user);
-            Object metaData = cachedData.getClass().getMethod("getMetaData").invoke(cachedData);
-            Object prefix = metaData.getClass().getMethod("getPrefix").invoke(metaData);
-            return prefix != null ? (String) prefix : "";
-        } catch (Exception e) {
-            return "";
-        }
-    }
 }

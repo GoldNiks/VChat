@@ -15,9 +15,7 @@ public class GLReloadCommand {
                             var dir = ctx.getSource().getServer().getServerDirectory().toPath().resolve("config");
                             VChatTabConfig.reload(dir);
                             var server = ctx.getSource().getServer();
-                            for (var player : server.getPlayerList().getPlayers()) {
-                                TabListHandler.sendTabList(player);
-                            }
+                            TabListHandler.refreshAll(server, true);
                             ctx.getSource().sendSuccess(() -> Component.literal("§aVChat config reloaded"), true);
                             return 1;
                         })
@@ -26,6 +24,14 @@ public class GLReloadCommand {
                         .executes(ctx -> {
                             ctx.getSource().sendSuccess(() -> Component.literal("§7Header: §f" + VChatTabConfig.header()), false);
                             ctx.getSource().sendSuccess(() -> Component.literal("§7Footer: §f" + VChatTabConfig.footer()), false);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§7LuckPerms prefixes: §f"
+                                    + VChatTabConfig.enableLuckPermsPrefixes()), false);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§7TAB sorting: §f"
+                                    + VChatTabConfig.enableTabSorting()), false);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§7TAB order meta: §f"
+                                    + VChatTabConfig.tabOrderMetaKey()), false);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§7TAB refresh ticks: §f"
+                                    + VChatTabConfig.tabUpdateIntervalTicks()), false);
                             return 1;
                         })
                 )

@@ -1,8 +1,8 @@
 # VChat
 
-**English:** Forge 1.20.1 mod: global/local chat with configurable prefixes, custom tab list, command logging.
+**English:** Forge 1.20.1 mod: global/local chat, LuckPerms prefixes and rank sorting, custom tab list, command logging.
 
-**Русский:** Forge 1.20.1 мод: глобальный/локальный чат с настраиваемыми префиксами, кастомный таб, логирование команд.
+**Русский:** Forge 1.20.1 мод: глобальный/локальный чат, префиксы и сортировка LuckPerms, кастомный таб, логирование команд.
 
 ## Features / Возможности
 
@@ -10,6 +10,7 @@
 - **Global chat** — `/g <text>` or `!<text>` in chat, visible to all players
 - **Local chat** — regular message, configurable radius (default 100 blocks)
 - **LuckPerms prefixes** — automatically applied via scoreboard team
+- **LuckPerms sorting** — configurable group order, `tab-order` meta and group-weight fallback
 - **Custom tab list** — header and footer with placeholders: `%online%`, `%max%`, `%player%`
 - **Welcome message** — personal message on join
 - **Command logging** — all commands and chat logged to `[VChat]` in console
@@ -19,6 +20,7 @@
 - **Глобальный чат** — `/g <текст>` или `!<текст>` в чате, видят все игроки
 - **Локальный чат** — обычное сообщение, настраиваемый радиус (по умолчанию 100 блоков)
 - **Префиксы LuckPerms** — автоматически подставляются через scoreboard team
+- **Сортировка LuckPerms** — порядок групп из конфига, meta `tab-order` и fallback на weight
 - **Кастомный таб** — заголовок и футер с плейсхолдерами: `%online%`, `%max%`, `%player%`
 - **Приветствие** — личное сообщение при входе на сервер
 - **Логирование** — все команды и чат пишутся в `[VChat]` в консоли
@@ -46,7 +48,15 @@
   "globalChatFormat": "&e[G] &7<name>: &f<message>",
   "localChatFormat": "&7[L] &7<name>: &f<message>",
   "mentionNoOneHeard": true,
-  "noOneHeardMessage": "&7No one heard you"
+  "noOneHeardMessage": "&7No one heard you",
+  "enableLuckPermsPrefixes": true,
+  "enableTabSorting": true,
+  "tabGroupOrder": {},
+  "tabOrderMetaKey": "tab-order",
+  "useLuckPermsWeightFallback": true,
+  "higherWeightFirst": true,
+  "defaultTabOrder": 9999,
+  "tabUpdateIntervalTicks": 20
 }
 ```
 
@@ -75,6 +85,42 @@
 | `localChatFormat` | string | `&7[L]...` | Local message format |
 | `mentionNoOneHeard` | bool | `true` | Notify if no one hears local |
 | `noOneHeardMessage` | string | `&7No one...` | "No one heard" text |
+| `enableLuckPermsPrefixes` | bool | `true` | Show the resolved LuckPerms prefix |
+| `enableTabSorting` | bool | `true` | Sort players in TAB using scoreboard teams |
+| `tabGroupOrder` | object | `{}` | Explicit primary-group order; lower values appear first |
+| `tabOrderMetaKey` | string | `tab-order` | LuckPerms meta key used when the group has no config override |
+| `useLuckPermsWeightFallback` | bool | `true` | Use primary-group weight if no explicit or meta order exists |
+| `higherWeightFirst` | bool | `true` | Put larger LuckPerms weights above smaller weights |
+| `defaultTabOrder` | int | `9999` | Order for players without sorting data, clamped to `0..9999` |
+| `tabUpdateIntervalTicks` | int | `20` | Prefix, order and TAB refresh interval; `20` ticks is about one second |
+
+### LuckPerms TAB sorting / Сортировка TAB через LuckPerms
+
+The first available source wins / Используется первый найденный источник:
+
+1. `tabGroupOrder` override for the player's primary group / настройка primary group в `tabGroupOrder`.
+2. LuckPerms meta value configured by `tabOrderMetaKey` (default: `tab-order`).
+3. Primary-group weight when `useLuckPermsWeightFallback` is enabled.
+4. `defaultTabOrder`.
+
+Lower order values appear first. Group weights are reversed when `higherWeightFirst` is `true`, so a larger weight appears higher.
+
+Меньшее значение порядка отображается выше. При `higherWeightFirst: true` больший LuckPerms weight располагается выше.
+
+Example / Пример:
+
+```json
+"tabGroupOrder": {
+  "owner": 0,
+  "admin": 100,
+  "moderator": 200,
+  "default": 9999
+}
+```
+
+Players with the same order use a nickname-derived secondary key (rare shortened-name collisions get a stable UUID suffix). VChat updates a scoreboard team only when the resolved prefix or order changes. Existing configs are automatically extended with missing fields on `/vchat reload`.
+
+Для игроков с одинаковым порядком используется вторичный ключ из ника; редкие коллизии сокращённых ников получают стабильный UUID-суффикс. VChat обновляет scoreboard-команду только при изменении итогового префикса или порядка. При `/vchat reload` недостающие поля автоматически добавляются в существующий конфиг.
 
 ## Installation / Установка
 
