@@ -29,8 +29,12 @@ public class GLReloadCommand {
                             ctx.getSource().sendSuccess(() -> Component.literal("§7TAB sorting: §f"
                                     + VChatTabConfig.enableTabSorting()), false);
                             ctx.getSource().sendSuccess(() -> Component.literal("§7TAB sorting source: §fLuckPerms weight"), false);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§7TAB player format: §f"
+                                    + VChatTabConfig.tabPlayerFormat()), false);
                             ctx.getSource().sendSuccess(() -> Component.literal("§7TAB refresh ticks: §f"
                                     + VChatTabConfig.tabUpdateIntervalTicks()), false);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§7Player formatting: §f"
+                                    + VChatTabConfig.playerFormattingEnabled()), false);
                             return 1;
                         })
                 )

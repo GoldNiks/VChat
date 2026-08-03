@@ -52,17 +52,10 @@ public class ChatEventHandler {
         }
     }
 
-    private Component format(String pattern, ServerPlayer player, String message) {
-        String text = pattern
-                .replace("<name>", player.getDisplayName().getString())
-                .replace("<message>", message);
-        return HexUtil.fromLegacy(text);
-    }
-
     private void broadcastGlobal(ServerPlayer sender, String message) {
         if (!VChatTabConfig.enableGlobalChat()) return;
 
-        Component text = format(VChatTabConfig.globalChatFormat(), sender, message);
+        Component text = MessageFormatter.chat(VChatTabConfig.globalChatFormat(), sender, message, "global");
 
         for (ServerPlayer p : sender.getServer().getPlayerList().getPlayers()) {
             p.sendSystemMessage(text);
@@ -73,7 +66,7 @@ public class ChatEventHandler {
     private void broadcastLocal(ServerPlayer sender, String message) {
         if (!VChatTabConfig.enableLocalChat()) return;
 
-        Component text = format(VChatTabConfig.localChatFormat(), sender, message);
+        Component text = MessageFormatter.chat(VChatTabConfig.localChatFormat(), sender, message, "local");
         int radius = VChatTabConfig.localChatRadius();
         boolean heard = false;
 

@@ -12,6 +12,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class VChatTabConfig {
+    private static final int CURRENT_CONFIG_VERSION = 2;
+
+    public int configVersion = CURRENT_CONFIG_VERSION;
     public TabSettings tab = new TabSettings();
     public ChatSettings chat = new ChatSettings();
     public LuckPermsSettings luckPerms = new LuckPermsSettings();
@@ -23,6 +26,7 @@ public class VChatTabConfig {
     public static String header() { ensure(); return instance.tab.header; }
     public static String footer() { ensure(); return instance.tab.footer; }
     public static String joinMessage() { ensure(); return instance.tab.joinMessage; }
+    public static String tabPlayerFormat() { ensure(); return instance.tab.playerFormat; }
     public static int tabUpdateIntervalTicks() { ensure(); return Math.max(1, instance.tab.updateIntervalTicks); }
     public static int localChatRadius() { ensure(); return Math.max(0, instance.chat.localRadius); }
     public static boolean enableGlobalChat() { ensure(); return instance.chat.enableGlobal; }
@@ -32,7 +36,13 @@ public class VChatTabConfig {
     public static String localChatFormat() { ensure(); return instance.chat.localFormat; }
     public static boolean mentionNoOneHeard() { ensure(); return instance.chat.notifyWhenNoOneHeard; }
     public static String noOneHeardMessage() { ensure(); return instance.chat.noOneHeardMessage; }
+    public static boolean playerFormattingEnabled() { ensure(); return instance.chat.playerFormatting.enabled; }
+    public static boolean colorsForEveryone() { ensure(); return instance.chat.playerFormatting.colorsForEveryone; }
+    public static boolean hexForEveryone() { ensure(); return instance.chat.playerFormatting.hexForEveryone; }
+    public static boolean stylesForEveryone() { ensure(); return instance.chat.playerFormatting.stylesForEveryone; }
+    public static boolean obfuscatedForEveryone() { ensure(); return instance.chat.playerFormatting.obfuscatedForEveryone; }
     public static boolean enableLuckPermsPrefixes() { ensure(); return instance.luckPerms.showPrefixes; }
+    public static boolean enableLuckPermsSuffixes() { ensure(); return instance.luckPerms.showSuffixes; }
     public static boolean enableTabSorting() { ensure(); return instance.luckPerms.sortTabByWeight; }
     public static boolean higherWeightFirst() { ensure(); return instance.luckPerms.higherWeightFirst; }
 
@@ -60,9 +70,22 @@ public class VChatTabConfig {
 
     private static VChatTabConfig read(Path file) {
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-            VChatTabConfig loaded = GSON.fromJson(JsonParser.parseReader(reader), VChatTabConfig.class);
+            JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
+            int fileVersion = getInt(json, "configVersion", 1);
+            VChatTabConfig loaded = GSON.fromJson(json, VChatTabConfig.class);
             instance = loaded;
             normalize();
+            if (fileVersion < CURRENT_CONFIG_VERSION) {
+                if (json.has("luckPerms") && json.get("luckPerms").isJsonObject()) {
+                    JsonObject oldLuckPerms = json.getAsJsonObject("luckPerms");
+                    if (!oldLuckPerms.has("showSuffixes")) {
+                        instance.luckPerms.showSuffixes = instance.luckPerms.showPrefixes;
+                    }
+                }
+                upgradeOldDefaults(instance);
+                instance.configVersion = CURRENT_CONFIG_VERSION;
+                writeTemplate(file, instance);
+            }
             return instance;
         } catch (Exception e) {
             e.printStackTrace();
@@ -89,11 +112,13 @@ public class VChatTabConfig {
             migrated.chat.noOneHeardMessage = getString(old, "noOneHeardMessage", migrated.chat.noOneHeardMessage);
 
             migrated.luckPerms.showPrefixes = getBoolean(old, "enableLuckPermsPrefixes", migrated.luckPerms.showPrefixes);
+            migrated.luckPerms.showSuffixes = migrated.luckPerms.showPrefixes;
             migrated.luckPerms.sortTabByWeight = getBoolean(old, "enableTabSorting", migrated.luckPerms.sortTabByWeight);
             migrated.luckPerms.higherWeightFirst = getBoolean(old, "higherWeightFirst", migrated.luckPerms.higherWeightFirst);
         } catch (Exception e) {
             e.printStackTrace();
         }
+        upgradeOldDefaults(migrated);
         return migrated;
     }
 
@@ -109,6 +134,9 @@ public class VChatTabConfig {
     private static String annotatedJson(VChatTabConfig config) {
         return """
                 {
+                  // Версия структуры конфига. Не изменяйте вручную.
+                  "configVersion": %d,
+
                   // Настройки верхней и нижней части TAB.
                   "tab": {
                     // Текст сверху. Доступны: %%online%%, %%max%%, %%player%%.
@@ -117,6 +145,9 @@ public class VChatTabConfig {
                     "footer": %s,
                     // Личное сообщение игроку после входа на сервер.
                     "joinMessage": %s,
+                    // Формат строки игрока в TAB.
+                    // Доступны: <prefix>, <suffix>, <name>, <display_name>, <group>, <world>.
+                    "playerFormat": %s,
                     // Как часто обновлять TAB и данные LuckPerms. 20 тиков = примерно 1 секунда.
                     "updateIntervalTicks": %d
                   },
@@ -130,21 +161,43 @@ public class VChatTabConfig {
                     // Включить обычный локальный чат.
                     "enableLocal": %s,
                     // Команда глобального чата без символа /. Например: g означает /g сообщение.
+                    // После изменения имени команды требуется перезапуск сервера.
                     "globalCommand": %s,
-                    // Формат глобального сообщения. <name> = ник, <message> = текст.
+                    // Формат глобального сообщения. Все placeholders перечислены ниже в README.
                     "globalFormat": %s,
-                    // Формат локального сообщения.
+                    // Формат локального сообщения. Обычно отличается меткой [L].
                     "localFormat": %s,
                     // Сообщать отправителю, если рядом никто не услышал локальное сообщение.
                     "notifyWhenNoOneHeard": %s,
                     // Текст этого уведомления.
-                    "noOneHeardMessage": %s
+                    "noOneHeardMessage": %s,
+
+                    // Оформление, которое игроки могут писать внутри своих сообщений.
+                    // Операторы с уровнем 2 всегда имеют все разрешения.
+                    "playerFormatting": {
+                      // Главный переключатель форматирования сообщений игроками.
+                      "enabled": %s,
+                      // true разрешает обычные цвета &0-&f всем игрокам.
+                      // false требует LuckPerms permission: vchat.format.color
+                      "colorsForEveryone": %s,
+                      // true разрешает HEX (#RRGGBB, &#RRGGBB, &%%23RRGGBB) всем игрокам.
+                      // false требует permission: vchat.format.hex
+                      "hexForEveryone": %s,
+                      // true разрешает &l, &m, &n, &o и &r всем игрокам.
+                      // false требует permission: vchat.format.style
+                      "stylesForEveryone": %s,
+                      // Эффект &k лучше оставить только администрации.
+                      // false требует permission: vchat.format.obfuscated
+                      "obfuscatedForEveryone": %s
+                    }
                   },
 
                   // Интеграция с LuckPerms. Если LuckPerms не установлен, мод продолжит работать без префиксов.
                   "luckPerms": {
                     // Показывать префикс LuckPerms перед ником игрока.
                     "showPrefixes": %s,
+                    // Показывать suffix LuckPerms после ника игрока.
+                    "showSuffixes": %s,
                     // Сортировать TAB по weight основной группы LuckPerms.
                     "sortTabByWeight": %s,
                     // true: больший weight выше. false: меньший weight выше.
@@ -152,12 +205,19 @@ public class VChatTabConfig {
                   }
                 }
                 """.formatted(
-                json(config.tab.header), json(config.tab.footer), json(config.tab.joinMessage),
+                CURRENT_CONFIG_VERSION, json(config.tab.header), json(config.tab.footer),
+                json(config.tab.joinMessage), json(config.tab.playerFormat),
                 Math.max(1, config.tab.updateIntervalTicks), config.chat.localRadius,
                 config.chat.enableGlobal, config.chat.enableLocal, json(config.chat.globalCommand),
                 json(config.chat.globalFormat), json(config.chat.localFormat),
                 config.chat.notifyWhenNoOneHeard, json(config.chat.noOneHeardMessage),
-                config.luckPerms.showPrefixes, config.luckPerms.sortTabByWeight,
+                config.chat.playerFormatting.enabled,
+                config.chat.playerFormatting.colorsForEveryone,
+                config.chat.playerFormatting.hexForEveryone,
+                config.chat.playerFormatting.stylesForEveryone,
+                config.chat.playerFormatting.obfuscatedForEveryone,
+                config.luckPerms.showPrefixes, config.luckPerms.showSuffixes,
+                config.luckPerms.sortTabByWeight,
                 config.luckPerms.higherWeightFirst);
     }
 
@@ -182,11 +242,17 @@ public class VChatTabConfig {
         if (instance.tab == null) instance.tab = new TabSettings();
         if (instance.chat == null) instance.chat = new ChatSettings();
         if (instance.luckPerms == null) instance.luckPerms = new LuckPermsSettings();
+        if (instance.chat.playerFormatting == null) {
+            instance.chat.playerFormatting = new PlayerFormattingSettings();
+        }
 
         TabSettings defaultTab = new TabSettings();
         if (instance.tab.header == null) instance.tab.header = defaultTab.header;
         if (instance.tab.footer == null) instance.tab.footer = defaultTab.footer;
         if (instance.tab.joinMessage == null) instance.tab.joinMessage = defaultTab.joinMessage;
+        if (instance.tab.playerFormat == null || instance.tab.playerFormat.isBlank()) {
+            instance.tab.playerFormat = defaultTab.playerFormat;
+        }
 
         ChatSettings defaultChat = new ChatSettings();
         if (instance.chat.globalCommand == null || instance.chat.globalCommand.isBlank()) {
@@ -199,10 +265,20 @@ public class VChatTabConfig {
         }
     }
 
+    private static void upgradeOldDefaults(VChatTabConfig config) {
+        if ("&e[G] &7<name>: &f<message>".equals(config.chat.globalFormat)) {
+            config.chat.globalFormat = new ChatSettings().globalFormat;
+        }
+        if ("&7[L] &7<name>: &f<message>".equals(config.chat.localFormat)) {
+            config.chat.localFormat = new ChatSettings().localFormat;
+        }
+    }
+
     public static final class TabSettings {
         public String header = "\n&6&l&nVChat\n\n&7Игроки: &a%online%\n\n&7&m-----------------";
         public String footer = "&7&m-----------------\n\n&7Баланс: &e0";
         public String joinMessage = "&aДобро пожаловать на &6&l&nVChat&a!";
+        public String playerFormat = "<prefix>&f<name><suffix>";
         public int updateIntervalTicks = 20;
     }
 
@@ -211,14 +287,24 @@ public class VChatTabConfig {
         public boolean enableGlobal = true;
         public boolean enableLocal = true;
         public String globalCommand = "g";
-        public String globalFormat = "&e[G] &7<name>: &f<message>";
-        public String localFormat = "&7[L] &7<name>: &f<message>";
+        public String globalFormat = "&e[G] <prefix>&f<name><suffix>&7: &f<message>";
+        public String localFormat = "&7[L] <prefix>&f<name><suffix>&7: &f<message>";
         public boolean notifyWhenNoOneHeard = true;
         public String noOneHeardMessage = "&7Вас никто не услышал";
+        public PlayerFormattingSettings playerFormatting = new PlayerFormattingSettings();
+    }
+
+    public static final class PlayerFormattingSettings {
+        public boolean enabled = true;
+        public boolean colorsForEveryone = false;
+        public boolean hexForEveryone = false;
+        public boolean stylesForEveryone = false;
+        public boolean obfuscatedForEveryone = false;
     }
 
     public static final class LuckPermsSettings {
         public boolean showPrefixes = true;
+        public boolean showSuffixes = true;
         public boolean sortTabByWeight = true;
         public boolean higherWeightFirst = true;
     }

@@ -18,6 +18,7 @@ public class TabListHandler {
     private static final String TEAM_NAMESPACE = "vch";
     private static final int MAX_TAB_ORDER = 9999;
     private static final Map<UUID, PlayerTabState> PLAYER_STATES = new HashMap<>();
+    private static final Map<UUID, String> TAB_DISPLAY_STATES = new HashMap<>();
     private int tick = 0;
 
     @SubscribeEvent
@@ -60,26 +61,49 @@ public class TabListHandler {
         }
     }
 
+    @SubscribeEvent
+    public void onTabListNameFormat(PlayerEvent.TabListNameFormat event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            LuckPermsBridge.PlayerData data = LuckPermsBridge.read(player);
+            event.setDisplayName(MessageFormatter.player(VChatTabConfig.tabPlayerFormat(), player, data));
+        }
+    }
+
     private static void refreshPlayerTeam(ServerPlayer player, boolean force) {
         boolean showPrefix = VChatTabConfig.enableLuckPermsPrefixes();
+        boolean showSuffix = VChatTabConfig.enableLuckPermsSuffixes();
         boolean sortPlayers = VChatTabConfig.enableTabSorting();
-        if (!showPrefix && !sortPlayers) {
+        LuckPermsBridge.PlayerData luckPerms = LuckPermsBridge.read(player);
+        String displaySignature = VChatTabConfig.tabPlayerFormat()
+                + '|' + luckPerms.prefix() + '|' + luckPerms.suffix()
+                + '|' + luckPerms.primaryGroup() + '|' + luckPerms.groupWeight()
+                + '|' + player.serverLevel().dimension().location()
+                + '|' + player.getDisplayName().getString();
+        boolean displayChanged = force || !displaySignature.equals(TAB_DISPLAY_STATES.get(player.getUUID()));
+
+        if (!showPrefix && !showSuffix && !sortPlayers) {
             removeManagedTeam(player);
+            if (displayChanged) player.refreshTabListName();
+            TAB_DISPLAY_STATES.put(player.getUUID(), displaySignature);
             return;
         }
 
-        LuckPermsBridge.PlayerData luckPerms = LuckPermsBridge.read(player);
         String prefix = showPrefix ? luckPerms.prefix() : "";
+        String suffix = showSuffix ? luckPerms.suffix() : "";
         int order = sortPlayers ? resolveTabOrder(luckPerms) : MAX_TAB_ORDER;
 
         Scoreboard board = player.getScoreboard();
         String teamName = buildTeamName(board, player, order);
-        PlayerTabState desired = new PlayerTabState(teamName, prefix);
+        PlayerTabState desired = new PlayerTabState(teamName, prefix, suffix);
         PlayerTabState current = PLAYER_STATES.get(player.getUUID());
 
         PlayerTeam existing = board.getPlayerTeam(teamName);
         boolean teamIsValid = existing != null && existing.getPlayers().contains(player.getScoreboardName());
-        if (!force && desired.equals(current) && teamIsValid) return;
+        if (!force && desired.equals(current) && teamIsValid) {
+            if (displayChanged) player.refreshTabListName();
+            TAB_DISPLAY_STATES.put(player.getUUID(), displaySignature);
+            return;
+        }
 
         removeManagedTeam(player);
 
@@ -89,8 +113,11 @@ public class TabListHandler {
         }
 
         team.setPlayerPrefix(HexUtil.fromLegacy(prefix));
+        team.setPlayerSuffix(HexUtil.fromLegacy(suffix));
         board.addPlayerToTeam(player.getScoreboardName(), team);
         PLAYER_STATES.put(player.getUUID(), desired);
+        player.refreshTabListName();
+        TAB_DISPLAY_STATES.put(player.getUUID(), displaySignature);
     }
 
     private static int resolveTabOrder(LuckPermsBridge.PlayerData data) {
@@ -138,6 +165,7 @@ public class TabListHandler {
                 board.removePlayerTeam(team);
             }
         }
+        TAB_DISPLAY_STATES.remove(player.getUUID());
     }
 
     public static void sendTabList(ServerPlayer player) {
@@ -157,6 +185,6 @@ public class TabListHandler {
         player.connection.send(new ClientboundTabListPacket(HexUtil.fromLegacy(h), HexUtil.fromLegacy(f)));
     }
 
-    private record PlayerTabState(String teamName, String prefix) {
+    private record PlayerTabState(String teamName, String prefix, String suffix) {
     }
 }

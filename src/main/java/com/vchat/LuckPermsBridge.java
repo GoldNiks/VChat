@@ -30,9 +30,10 @@ public final class LuckPermsBridge {
             Object metaData = cachedData.getClass().getMethod("getMetaData").invoke(cachedData);
 
             String prefix = stringValue(metaData.getClass().getMethod("getPrefix").invoke(metaData));
+            String suffix = stringValue(metaData.getClass().getMethod("getSuffix").invoke(metaData));
             Integer groupWeight = readGroupWeight(luckPerms, primaryGroup);
 
-            return new PlayerData(prefix, groupWeight);
+            return new PlayerData(prefix, suffix, primaryGroup, groupWeight);
         } catch (ReflectiveOperationException | LinkageError ignored) {
             return PlayerData.EMPTY;
         }
@@ -71,11 +72,31 @@ public final class LuckPermsBridge {
         return null;
     }
 
+    public static boolean hasPermission(ServerPlayer player, String permission) {
+        Object luckPerms = getApi();
+        if (luckPerms == null || permission == null || permission.isBlank()) return false;
+
+        try {
+            Object userManager = luckPerms.getClass().getMethod("getUserManager").invoke(luckPerms);
+            Object user = userManager.getClass().getMethod("getUser", UUID.class)
+                    .invoke(userManager, player.getUUID());
+            if (user == null) return false;
+
+            Object cachedData = user.getClass().getMethod("getCachedData").invoke(user);
+            Object permissionData = cachedData.getClass().getMethod("getPermissionData").invoke(cachedData);
+            Object result = permissionData.getClass().getMethod("checkPermission", String.class)
+                    .invoke(permissionData, permission);
+            return (boolean) result.getClass().getMethod("asBoolean").invoke(result);
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            return false;
+        }
+    }
+
     private static String stringValue(Object value) {
         return value == null ? "" : value.toString();
     }
 
-    public record PlayerData(String prefix, Integer groupWeight) {
-        private static final PlayerData EMPTY = new PlayerData("", null);
+    public record PlayerData(String prefix, String suffix, String primaryGroup, Integer groupWeight) {
+        private static final PlayerData EMPTY = new PlayerData("", "", "", null);
     }
 }
