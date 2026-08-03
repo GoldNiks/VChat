@@ -37,12 +37,12 @@
 
 ```json5
 {
-  "configVersion": 5,
+  "configVersion": 6,
 
   "tab": {
     "header": "...",
     "footer": "...",
-    "joinMessage": "...",
+    "joinMessage": "Добро пожаловать на ValorCraft!",
     "playerFormat": "<prefix>&f<name><suffix>&r",
     "updateIntervalTicks": 20
   },
@@ -128,7 +128,7 @@
 
 После изменения выполните `/vchat reload`. Изменение `globalCommand` требует полного перезапуска, потому что команда регистрируется при запуске сервера.
 
-Конфиги старых версий автоматически обновляются до `configVersion: 5` с сохранением настроек. Старый `vchat-tab.json` остаётся резервной копией.
+Конфиги старых версий автоматически обновляются до `configVersion: 6` с сохранением настроек. Старый `vchat-tab.json` остаётся резервной копией.
 
 ## FTB Teams hover
 
@@ -171,7 +171,7 @@
 
 ## Установка
 
-1. Поместить `VChat-1.5.0.jar` в `mods/` сервера Forge 1.20.1.
+1. Поместить `VChat-1.5.1.jar` в `mods/` сервера Forge 1.20.1.
 2. Установить LuckPerms, если нужны префиксы, permissions и сортировка.
 3. Перезапустить сервер.
 4. Настроить `config/vchat-config.json5` и выполнить `/vchat reload`.

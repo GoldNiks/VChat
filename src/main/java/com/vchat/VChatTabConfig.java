@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class VChatTabConfig {
-    private static final int CURRENT_CONFIG_VERSION = 5;
+    private static final int CURRENT_CONFIG_VERSION = 6;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
     public TabSettings tab = new TabSettings();
@@ -473,13 +473,16 @@ public class VChatTabConfig {
         String oldHeader = "\n&6&l&nVChat\n\n&7Игроки: &a%online%\n\n&7&m-----------------";
         String oldFooter = "&7&m-----------------\n\n&7Баланс: &e0";
         String oldJoinMessage = "&aДобро пожаловать на &6&l&nVChat&a!";
+        String oldValorCraftJoinMessage = "&aДобро пожаловать на &6&lValorCraft&a!";
         if (oldHeader.equals(config.tab.header)) {
             config.tab.header = newDefaults.header;
         }
         if (oldFooter.equals(config.tab.footer)) {
             config.tab.footer = newDefaults.footer;
         }
-        if (oldJoinMessage.equals(config.tab.joinMessage)) {
+        if (oldJoinMessage.equals(config.tab.joinMessage)
+                || oldValorCraftJoinMessage.equals(config.tab.joinMessage)
+                || (config.tab.joinMessage != null && config.tab.joinMessage.contains("VChat"))) {
             config.tab.joinMessage = newDefaults.joinMessage;
         }
         if ("&e[G] &7<name>: &f<message>".equals(config.chat.globalFormat)) {
@@ -493,7 +496,7 @@ public class VChatTabConfig {
     public static final class TabSettings {
         public String header = "\n&6&lValorCraft\n&7Игроки: &f%online%&8/&7%max%\n";
         public String footer = "\n&8valorcraft.ru\n";
-        public String joinMessage = "&aДобро пожаловать на &6&lValorCraft&a!";
+        public String joinMessage = "Добро пожаловать на ValorCraft!";
         public String playerFormat = "<prefix>&f<name><suffix>&r";
         public int updateIntervalTicks = 20;
     }
