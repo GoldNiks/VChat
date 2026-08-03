@@ -45,6 +45,8 @@ public class GLReloadCommand {
                                     + VChatTabConfig.ignoreEnabled()), false);
                             ctx.getSource().sendSuccess(() -> Component.literal("§7FTB Teams name hover: §f"
                                     + VChatTabConfig.ftbTeamsHoverEnabled()), false);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§7Death message heads hidden: §f"
+                                    + VChatTabConfig.hidePlayerHeadsInDeathMessages()), false);
                             ctx.getSource().sendSuccess(() -> Component.literal("§7Command arguments in log: §f"
                                     + VChatTabConfig.includeCommandArguments()), false);
                             return 1;

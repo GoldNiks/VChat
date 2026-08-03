@@ -14,13 +14,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class VChatTabConfig {
-    private static final int CURRENT_CONFIG_VERSION = 6;
+    private static final int CURRENT_CONFIG_VERSION = 7;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
     public TabSettings tab = new TabSettings();
     public ChatSettings chat = new ChatSettings();
     public LuckPermsSettings luckPerms = new LuckPermsSettings();
     public FTBTeamsSettings ftbTeams = new FTBTeamsSettings();
+    public DeathMessageSettings deathMessages = new DeathMessageSettings();
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
     private static VChatTabConfig instance;
@@ -84,6 +85,10 @@ public class VChatTabConfig {
     public static String ftbTeamsRankLabel() { ensure(); return instance.ftbTeams.rankLabel; }
     public static String ftbTeamsMembersLabel() { ensure(); return instance.ftbTeams.membersLabel; }
     public static String ftbTeamsNoTeamText() { ensure(); return instance.ftbTeams.noTeamText; }
+    public static boolean hidePlayerHeadsInDeathMessages() {
+        ensure();
+        return instance.deathMessages.enabled && instance.deathMessages.hidePlayerHeads;
+    }
 
     private static void ensure() {
         if (instance == null) reload(configDir);
@@ -322,6 +327,15 @@ public class VChatTabConfig {
                     "rankLabel": %s,
                     "membersLabel": %s,
                     "noTeamText": %s
+                  },
+
+                  // Обработка ванильных сообщений о смерти игроков.
+                  "deathMessages": {
+                    // Главный переключатель обработки death-компонентов через VChat.
+                    "enabled": %s,
+                    // Убирает головы Chat Heads только у сообщений смерти.
+                    // Текст, перевод, причина смерти и hover предмета сохраняются.
+                    "hidePlayerHeads": %s
                   }
                 }
                 """.formatted(
@@ -361,7 +375,8 @@ public class VChatTabConfig {
                 config.ftbTeams.showTeamName, config.ftbTeams.showPlayerRank,
                 config.ftbTeams.showMemberCount, config.ftbTeams.hideHoverWithoutTeam,
                 json(config.ftbTeams.teamLabel), json(config.ftbTeams.rankLabel),
-                json(config.ftbTeams.membersLabel), json(config.ftbTeams.noTeamText));
+                json(config.ftbTeams.membersLabel), json(config.ftbTeams.noTeamText),
+                config.deathMessages.enabled, config.deathMessages.hidePlayerHeads);
     }
 
     private static String json(String value) {
@@ -386,6 +401,7 @@ public class VChatTabConfig {
         if (instance.chat == null) instance.chat = new ChatSettings();
         if (instance.luckPerms == null) instance.luckPerms = new LuckPermsSettings();
         if (instance.ftbTeams == null) instance.ftbTeams = new FTBTeamsSettings();
+        if (instance.deathMessages == null) instance.deathMessages = new DeathMessageSettings();
         if (instance.chat.playerFormatting == null) {
             instance.chat.playerFormatting = new PlayerFormattingSettings();
         }
@@ -583,5 +599,10 @@ public class VChatTabConfig {
         public String rankLabel = "&7Роль: &f";
         public String membersLabel = "&7Участников: &f";
         public String noTeamText = "&7Игрок не состоит в команде";
+    }
+
+    public static final class DeathMessageSettings {
+        public boolean enabled = true;
+        public boolean hidePlayerHeads = true;
     }
 }
