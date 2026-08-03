@@ -2,7 +2,6 @@ package com.vchat;
 
 import net.minecraft.server.level.ServerPlayer;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.OptionalInt;
 import java.util.UUID;
 
@@ -31,10 +30,9 @@ public final class LuckPermsBridge {
             Object metaData = cachedData.getClass().getMethod("getMetaData").invoke(cachedData);
 
             String prefix = stringValue(metaData.getClass().getMethod("getPrefix").invoke(metaData));
-            String metaOrder = readMetaValue(metaData, VChatTabConfig.tabOrderMetaKey());
             Integer groupWeight = readGroupWeight(luckPerms, primaryGroup);
 
-            return new PlayerData(prefix, primaryGroup, parseInteger(metaOrder), groupWeight);
+            return new PlayerData(prefix, groupWeight);
         } catch (ReflectiveOperationException | LinkageError ignored) {
             return PlayerData.EMPTY;
         }
@@ -52,18 +50,9 @@ public final class LuckPermsBridge {
             classMissing = true;
             return null;
         } catch (ReflectiveOperationException | LinkageError e) {
-            if (e instanceof InvocationTargetException) {
-                // LuckPerms may not be ready during early startup. Retry on the next refresh.
-                return null;
-            }
+            // LuckPerms may not be ready during early startup. Retry on the next refresh.
             return null;
         }
-    }
-
-    private static String readMetaValue(Object metaData, String key) throws ReflectiveOperationException {
-        if (key == null || key.isBlank()) return "";
-        Object value = metaData.getClass().getMethod("getMetaValue", String.class).invoke(metaData, key);
-        return stringValue(value);
     }
 
     private static Integer readGroupWeight(Object luckPerms, String primaryGroup)
@@ -82,20 +71,11 @@ public final class LuckPermsBridge {
         return null;
     }
 
-    private static Integer parseInteger(String value) {
-        if (value == null || value.isBlank()) return null;
-        try {
-            return Integer.parseInt(value.trim());
-        } catch (NumberFormatException ignored) {
-            return null;
-        }
-    }
-
     private static String stringValue(Object value) {
         return value == null ? "" : value.toString();
     }
 
-    public record PlayerData(String prefix, String primaryGroup, Integer metaOrder, Integer groupWeight) {
-        private static final PlayerData EMPTY = new PlayerData("", "", null, null);
+    public record PlayerData(String prefix, Integer groupWeight) {
+        private static final PlayerData EMPTY = new PlayerData("", null);
     }
 }

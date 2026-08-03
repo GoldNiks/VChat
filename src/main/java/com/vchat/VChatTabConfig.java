@@ -2,77 +2,39 @@ package com.vchat;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 public class VChatTabConfig {
-    public String header = "\n&6&l&nVChat\n\n&7Игроки: &a%online%\n\n&7&m-----------------";
-    public String footer = "&7&m-----------------\n\n&7Баланс: &e0";
-    public String joinMessage = "&aДобро пожаловать на &6&l&nVChat&a!";
+    public TabSettings tab = new TabSettings();
+    public ChatSettings chat = new ChatSettings();
+    public LuckPermsSettings luckPerms = new LuckPermsSettings();
 
-    public int localChatRadius = 100;
-    public boolean enableGlobalChat = true;
-    public boolean enableLocalChat = true;
-    public String globalCommand = "g";
-    public String globalChatFormat = "&e[G] &7<name>: &f<message>";
-    public String localChatFormat = "&7[L] &7<name>: &f<message>";
-    public boolean mentionNoOneHeard = true;
-    public String noOneHeardMessage = "&7Вас никто не услышал";
-
-    public boolean enableLuckPermsPrefixes = true;
-    public boolean enableTabSorting = true;
-    public Map<String, Integer> tabGroupOrder = new LinkedHashMap<>();
-    public String tabOrderMetaKey = "tab-order";
-    public boolean useLuckPermsWeightFallback = true;
-    public boolean higherWeightFirst = true;
-    public int defaultTabOrder = 9999;
-    public int tabUpdateIntervalTicks = 20;
-
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
-    private static VChatTabConfig instance = null;
+    private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
+    private static VChatTabConfig instance;
     private static Path configDir = Path.of("config");
 
-    public static String header() { ensure(); return instance.header; }
-    public static String footer() { ensure(); return instance.footer; }
-    public static String joinMessage() { ensure(); return instance.joinMessage; }
-    public static int localChatRadius() { ensure(); return instance.localChatRadius; }
-    public static boolean enableGlobalChat() { ensure(); return instance.enableGlobalChat; }
-    public static boolean enableLocalChat() { ensure(); return instance.enableLocalChat; }
-    public static String globalCommand() { ensure(); return instance.globalCommand; }
-    public static String globalChatFormat() { ensure(); return instance.globalChatFormat; }
-    public static String localChatFormat() { ensure(); return instance.localChatFormat; }
-    public static boolean mentionNoOneHeard() { ensure(); return instance.mentionNoOneHeard; }
-    public static String noOneHeardMessage() { ensure(); return instance.noOneHeardMessage; }
-    public static boolean enableLuckPermsPrefixes() { ensure(); return instance.enableLuckPermsPrefixes; }
-    public static boolean enableTabSorting() { ensure(); return instance.enableTabSorting; }
-    public static String tabOrderMetaKey() { ensure(); return instance.tabOrderMetaKey; }
-    public static boolean useLuckPermsWeightFallback() { ensure(); return instance.useLuckPermsWeightFallback; }
-    public static boolean higherWeightFirst() { ensure(); return instance.higherWeightFirst; }
-    public static int defaultTabOrder() { ensure(); return clampTabOrder(instance.defaultTabOrder); }
-    public static int tabUpdateIntervalTicks() { ensure(); return Math.max(1, instance.tabUpdateIntervalTicks); }
-
-    public static Integer groupTabOrder(String groupName) {
-        ensure();
-        if (groupName == null || instance.tabGroupOrder == null) return null;
-        for (Map.Entry<String, Integer> entry : instance.tabGroupOrder.entrySet()) {
-            if (entry.getKey().equalsIgnoreCase(groupName)) {
-                return entry.getValue() == null ? null : clampTabOrder(entry.getValue());
-            }
-        }
-        return null;
-    }
-
-    public static int clampTabOrder(int order) {
-        return Math.max(0, Math.min(9999, order));
-    }
+    public static String header() { ensure(); return instance.tab.header; }
+    public static String footer() { ensure(); return instance.tab.footer; }
+    public static String joinMessage() { ensure(); return instance.tab.joinMessage; }
+    public static int tabUpdateIntervalTicks() { ensure(); return Math.max(1, instance.tab.updateIntervalTicks); }
+    public static int localChatRadius() { ensure(); return Math.max(0, instance.chat.localRadius); }
+    public static boolean enableGlobalChat() { ensure(); return instance.chat.enableGlobal; }
+    public static boolean enableLocalChat() { ensure(); return instance.chat.enableLocal; }
+    public static String globalCommand() { ensure(); return instance.chat.globalCommand; }
+    public static String globalChatFormat() { ensure(); return instance.chat.globalFormat; }
+    public static String localChatFormat() { ensure(); return instance.chat.localFormat; }
+    public static boolean mentionNoOneHeard() { ensure(); return instance.chat.notifyWhenNoOneHeard; }
+    public static String noOneHeardMessage() { ensure(); return instance.chat.noOneHeardMessage; }
+    public static boolean enableLuckPermsPrefixes() { ensure(); return instance.luckPerms.showPrefixes; }
+    public static boolean enableTabSorting() { ensure(); return instance.luckPerms.sortTabByWeight; }
+    public static boolean higherWeightFirst() { ensure(); return instance.luckPerms.higherWeightFirst; }
 
     private static void ensure() {
         if (instance == null) reload(configDir);
@@ -80,50 +42,184 @@ public class VChatTabConfig {
 
     public static void reload(Path dir) {
         configDir = dir;
-        Path file = dir.resolve("vchat-tab.json");
+        Path file = dir.resolve("vchat-config.json5");
         if (Files.exists(file)) {
-            try {
-                JsonObject json;
-                try (Reader reader = Files.newBufferedReader(file)) {
-                    json = JsonParser.parseReader(reader).getAsJsonObject();
-                }
-                boolean changed = addMissingDefaults(json);
-                instance = GSON.fromJson(json, VChatTabConfig.class);
-                normalize();
-                if (changed) {
-                    Files.writeString(file, GSON.toJson(json));
-                }
-                return;
-            } catch (Exception e) {
-                e.printStackTrace();
-                instance = new VChatTabConfig();
-                return;
-            }
+            instance = read(file);
+            return;
         }
-        instance = new VChatTabConfig();
+
+        Path legacyFile = dir.resolve("vchat-tab.json");
+        if (Files.exists(legacyFile)) {
+            instance = migrateLegacy(legacyFile);
+        } else {
+            instance = new VChatTabConfig();
+        }
+        normalize();
+        writeTemplate(file, instance);
+    }
+
+    private static VChatTabConfig read(Path file) {
+        try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+            VChatTabConfig loaded = GSON.fromJson(JsonParser.parseReader(reader), VChatTabConfig.class);
+            instance = loaded;
+            normalize();
+            return instance;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new VChatTabConfig();
+        }
+    }
+
+    private static VChatTabConfig migrateLegacy(Path legacyFile) {
+        VChatTabConfig migrated = new VChatTabConfig();
+        try (Reader reader = Files.newBufferedReader(legacyFile, StandardCharsets.UTF_8)) {
+            JsonObject old = JsonParser.parseReader(reader).getAsJsonObject();
+            migrated.tab.header = getString(old, "header", migrated.tab.header);
+            migrated.tab.footer = getString(old, "footer", migrated.tab.footer);
+            migrated.tab.joinMessage = getString(old, "joinMessage", migrated.tab.joinMessage);
+            migrated.tab.updateIntervalTicks = getInt(old, "tabUpdateIntervalTicks", migrated.tab.updateIntervalTicks);
+
+            migrated.chat.localRadius = getInt(old, "localChatRadius", migrated.chat.localRadius);
+            migrated.chat.enableGlobal = getBoolean(old, "enableGlobalChat", migrated.chat.enableGlobal);
+            migrated.chat.enableLocal = getBoolean(old, "enableLocalChat", migrated.chat.enableLocal);
+            migrated.chat.globalCommand = getString(old, "globalCommand", migrated.chat.globalCommand);
+            migrated.chat.globalFormat = getString(old, "globalChatFormat", migrated.chat.globalFormat);
+            migrated.chat.localFormat = getString(old, "localChatFormat", migrated.chat.localFormat);
+            migrated.chat.notifyWhenNoOneHeard = getBoolean(old, "mentionNoOneHeard", migrated.chat.notifyWhenNoOneHeard);
+            migrated.chat.noOneHeardMessage = getString(old, "noOneHeardMessage", migrated.chat.noOneHeardMessage);
+
+            migrated.luckPerms.showPrefixes = getBoolean(old, "enableLuckPermsPrefixes", migrated.luckPerms.showPrefixes);
+            migrated.luckPerms.sortTabByWeight = getBoolean(old, "enableTabSorting", migrated.luckPerms.sortTabByWeight);
+            migrated.luckPerms.higherWeightFirst = getBoolean(old, "higherWeightFirst", migrated.luckPerms.higherWeightFirst);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return migrated;
+    }
+
+    private static void writeTemplate(Path file, VChatTabConfig config) {
         try {
-            Files.createDirectories(dir);
-            Files.writeString(file, GSON.toJson(instance));
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, annotatedJson(config), StandardCharsets.UTF_8);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private static boolean addMissingDefaults(JsonObject json) {
-        JsonObject defaults = GSON.toJsonTree(new VChatTabConfig()).getAsJsonObject();
-        boolean changed = false;
-        for (Map.Entry<String, JsonElement> entry : defaults.entrySet()) {
-            if (!json.has(entry.getKey())) {
-                json.add(entry.getKey(), entry.getValue().deepCopy());
-                changed = true;
-            }
-        }
-        return changed;
+    private static String annotatedJson(VChatTabConfig config) {
+        return """
+                {
+                  // Настройки верхней и нижней части TAB.
+                  "tab": {
+                    // Текст сверху. Доступны: %%online%%, %%max%%, %%player%%.
+                    "header": %s,
+                    // Текст снизу. Доступны те же подстановки.
+                    "footer": %s,
+                    // Личное сообщение игроку после входа на сервер.
+                    "joinMessage": %s,
+                    // Как часто обновлять TAB и данные LuckPerms. 20 тиков = примерно 1 секунда.
+                    "updateIntervalTicks": %d
+                  },
+
+                  // Настройки локального и глобального чата.
+                  "chat": {
+                    // Радиус локального чата в блоках.
+                    "localRadius": %d,
+                    // Включить глобальный чат (!сообщение и команда ниже).
+                    "enableGlobal": %s,
+                    // Включить обычный локальный чат.
+                    "enableLocal": %s,
+                    // Команда глобального чата без символа /. Например: g означает /g сообщение.
+                    "globalCommand": %s,
+                    // Формат глобального сообщения. <name> = ник, <message> = текст.
+                    "globalFormat": %s,
+                    // Формат локального сообщения.
+                    "localFormat": %s,
+                    // Сообщать отправителю, если рядом никто не услышал локальное сообщение.
+                    "notifyWhenNoOneHeard": %s,
+                    // Текст этого уведомления.
+                    "noOneHeardMessage": %s
+                  },
+
+                  // Интеграция с LuckPerms. Если LuckPerms не установлен, мод продолжит работать без префиксов.
+                  "luckPerms": {
+                    // Показывать префикс LuckPerms перед ником игрока.
+                    "showPrefixes": %s,
+                    // Сортировать TAB по weight основной группы LuckPerms.
+                    "sortTabByWeight": %s,
+                    // true: больший weight выше. false: меньший weight выше.
+                    "higherWeightFirst": %s
+                  }
+                }
+                """.formatted(
+                json(config.tab.header), json(config.tab.footer), json(config.tab.joinMessage),
+                Math.max(1, config.tab.updateIntervalTicks), config.chat.localRadius,
+                config.chat.enableGlobal, config.chat.enableLocal, json(config.chat.globalCommand),
+                json(config.chat.globalFormat), json(config.chat.localFormat),
+                config.chat.notifyWhenNoOneHeard, json(config.chat.noOneHeardMessage),
+                config.luckPerms.showPrefixes, config.luckPerms.sortTabByWeight,
+                config.luckPerms.higherWeightFirst);
+    }
+
+    private static String json(String value) {
+        return GSON.toJson(value == null ? "" : value);
+    }
+
+    private static String getString(JsonObject json, String key, String fallback) {
+        return json.has(key) && !json.get(key).isJsonNull() ? json.get(key).getAsString() : fallback;
+    }
+
+    private static int getInt(JsonObject json, String key, int fallback) {
+        return json.has(key) && !json.get(key).isJsonNull() ? json.get(key).getAsInt() : fallback;
+    }
+
+    private static boolean getBoolean(JsonObject json, String key, boolean fallback) {
+        return json.has(key) && !json.get(key).isJsonNull() ? json.get(key).getAsBoolean() : fallback;
     }
 
     private static void normalize() {
         if (instance == null) instance = new VChatTabConfig();
-        if (instance.tabGroupOrder == null) instance.tabGroupOrder = new LinkedHashMap<>();
-        if (instance.tabOrderMetaKey == null) instance.tabOrderMetaKey = "";
+        if (instance.tab == null) instance.tab = new TabSettings();
+        if (instance.chat == null) instance.chat = new ChatSettings();
+        if (instance.luckPerms == null) instance.luckPerms = new LuckPermsSettings();
+
+        TabSettings defaultTab = new TabSettings();
+        if (instance.tab.header == null) instance.tab.header = defaultTab.header;
+        if (instance.tab.footer == null) instance.tab.footer = defaultTab.footer;
+        if (instance.tab.joinMessage == null) instance.tab.joinMessage = defaultTab.joinMessage;
+
+        ChatSettings defaultChat = new ChatSettings();
+        if (instance.chat.globalCommand == null || instance.chat.globalCommand.isBlank()) {
+            instance.chat.globalCommand = defaultChat.globalCommand;
+        }
+        if (instance.chat.globalFormat == null) instance.chat.globalFormat = defaultChat.globalFormat;
+        if (instance.chat.localFormat == null) instance.chat.localFormat = defaultChat.localFormat;
+        if (instance.chat.noOneHeardMessage == null) {
+            instance.chat.noOneHeardMessage = defaultChat.noOneHeardMessage;
+        }
+    }
+
+    public static final class TabSettings {
+        public String header = "\n&6&l&nVChat\n\n&7Игроки: &a%online%\n\n&7&m-----------------";
+        public String footer = "&7&m-----------------\n\n&7Баланс: &e0";
+        public String joinMessage = "&aДобро пожаловать на &6&l&nVChat&a!";
+        public int updateIntervalTicks = 20;
+    }
+
+    public static final class ChatSettings {
+        public int localRadius = 100;
+        public boolean enableGlobal = true;
+        public boolean enableLocal = true;
+        public String globalCommand = "g";
+        public String globalFormat = "&e[G] &7<name>: &f<message>";
+        public String localFormat = "&7[L] &7<name>: &f<message>";
+        public boolean notifyWhenNoOneHeard = true;
+        public String noOneHeardMessage = "&7Вас никто не услышал";
+    }
+
+    public static final class LuckPermsSettings {
+        public boolean showPrefixes = true;
+        public boolean sortTabByWeight = true;
+        public boolean higherWeightFirst = true;
     }
 }

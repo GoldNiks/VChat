@@ -1,129 +1,103 @@
 # VChat
 
-**English:** Forge 1.20.1 mod: global/local chat, LuckPerms prefixes and rank sorting, custom tab list, command logging.
+Приватный серверный мод ValorCraft для Forge 1.20.1: локальный и глобальный чат, TAB, префиксы и сортировка LuckPerms.
 
-**Русский:** Forge 1.20.1 мод: глобальный/локальный чат, префиксы и сортировка LuckPerms, кастомный таб, логирование команд.
+## Возможности
 
-## Features / Возможности
+- Глобальный чат: `/g <сообщение>` или `!сообщение`.
+- Локальный чат с настраиваемым радиусом.
+- Префиксы LuckPerms перед ником.
+- Сортировка TAB по weight основной группы LuckPerms.
+- Настраиваемые header, footer, приветствие и форматы сообщений.
+- Перезагрузка настроек без перезапуска сервера.
 
-### English
-- **Global chat** — `/g <text>` or `!<text>` in chat, visible to all players
-- **Local chat** — regular message, configurable radius (default 100 blocks)
-- **LuckPerms prefixes** — automatically applied via scoreboard team
-- **LuckPerms sorting** — configurable group order, `tab-order` meta and group-weight fallback
-- **Custom tab list** — header and footer with placeholders: `%online%`, `%max%`, `%player%`
-- **Welcome message** — personal message on join
-- **Command logging** — all commands and chat logged to `[VChat]` in console
-- **Fully configurable** — all settings in `config/vchat-tab.json`
+## Команды
 
-### Русский
-- **Глобальный чат** — `/g <текст>` или `!<текст>` в чате, видят все игроки
-- **Локальный чат** — обычное сообщение, настраиваемый радиус (по умолчанию 100 блоков)
-- **Префиксы LuckPerms** — автоматически подставляются через scoreboard team
-- **Сортировка LuckPerms** — порядок групп из конфига, meta `tab-order` и fallback на weight
-- **Кастомный таб** — заголовок и футер с плейсхолдерами: `%online%`, `%max%`, `%player%`
-- **Приветствие** — личное сообщение при входе на сервер
-- **Логирование** — все команды и чат пишутся в `[VChat]` в консоли
-- **Полная настройка** — все параметры в `config/vchat-tab.json`
-
-## Commands / Команды
-
-| English | Русский |
+| Команда | Описание |
 |---|---|
-| `/g <message>` — global chat | `/g <сообщение>` — глобальный чат |
-| `/vchat reload` — reload config | `/vchat reload` — перезагрузить конфиг |
-| `/vchat status` — show current settings | `/vchat status` — показать текущие настройки |
+| `/g <сообщение>` | Отправить сообщение в глобальный чат |
+| `/vchat reload` | Перечитать конфиг и сразу обновить TAB |
+| `/vchat status` | Показать активные настройки TAB и LuckPerms |
 
-## Config: `config/vchat-tab.json`
+## Конфиг
 
-```json
+При первом запуске создаётся `config/vchat-config.json5`. Это JSON5: строки и значения работают как в JSON, но разрешены поясняющие комментарии `//`.
+
+```json5
 {
-  "header": "\n&6&l&nVChat\n\n&7Players: &a%online%\n\n&7&m-----------------",
-  "footer": "&7&m-----------------\n\n&7Balance: &e0",
-  "joinMessage": "&aWelcome to &6&l&nVChat&a!",
-  "localChatRadius": 100,
-  "enableGlobalChat": true,
-  "enableLocalChat": true,
-  "globalCommand": "g",
-  "globalChatFormat": "&e[G] &7<name>: &f<message>",
-  "localChatFormat": "&7[L] &7<name>: &f<message>",
-  "mentionNoOneHeard": true,
-  "noOneHeardMessage": "&7No one heard you",
-  "enableLuckPermsPrefixes": true,
-  "enableTabSorting": true,
-  "tabGroupOrder": {},
-  "tabOrderMetaKey": "tab-order",
-  "useLuckPermsWeightFallback": true,
-  "higherWeightFirst": true,
-  "defaultTabOrder": 9999,
-  "tabUpdateIntervalTicks": 20
+  // Настройки верхней и нижней части TAB.
+  "tab": {
+    // Текст сверху. Доступны: %online%, %max%, %player%.
+    "header": "\n&6&l&nVChat\n\n&7Игроки: &a%online%\n\n&7&m-----------------",
+    // Текст снизу. Доступны те же подстановки.
+    "footer": "&7&m-----------------\n\n&7Баланс: &e0",
+    // Личное сообщение игроку после входа на сервер.
+    "joinMessage": "&aДобро пожаловать на &6&l&nVChat&a!",
+    // Как часто обновлять TAB и данные LuckPerms. 20 тиков = примерно 1 секунда.
+    "updateIntervalTicks": 20
+  },
+
+  // Настройки локального и глобального чата.
+  "chat": {
+    // Радиус локального чата в блоках.
+    "localRadius": 100,
+    // Включить глобальный чат (!сообщение и команда ниже).
+    "enableGlobal": true,
+    // Включить обычный локальный чат.
+    "enableLocal": true,
+    // Команда без символа /. Значение g означает /g сообщение.
+    "globalCommand": "g",
+    // <name> заменяется ником, <message> — текстом сообщения.
+    "globalFormat": "&e[G] &7<name>: &f<message>",
+    "localFormat": "&7[L] &7<name>: &f<message>",
+    // Сообщать отправителю, если рядом никто не услышал локальное сообщение.
+    "notifyWhenNoOneHeard": true,
+    "noOneHeardMessage": "&7Вас никто не услышал"
+  },
+
+  // Если LuckPerms не установлен, VChat продолжит работать без префиксов.
+  "luckPerms": {
+    // Показывать префикс LuckPerms перед ником.
+    "showPrefixes": true,
+    // Сортировать TAB по weight основной группы LuckPerms.
+    "sortTabByWeight": true,
+    // true: больший weight выше. false: меньший weight выше.
+    "higherWeightFirst": true
+  }
 }
 ```
 
-### Placeholders / Плейсхолдеры
+После ручного изменения файла выполните `/vchat reload`.
 
-| Placeholder | Description / Описание |
-|---|---|
-| `%online%` | Online player count |
-| `%max%` | Max players |
-| `%player%` | Player name |
-| `<name>` | Player name (in chat formats) |
-| `<message>` | Message text (in chat formats) |
+Старый `config/vchat-tab.json` автоматически переносится в новый формат при первом запуске VChat 1.2.0. Старый файл остаётся на месте как резервная копия.
 
-### Config fields / Поля конфига
+## Как работает сортировка LuckPerms
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `header` | string | `&6&l&nVChat...` | Tab header |
-| `footer` | string | `&7&m-...` | Tab footer |
-| `joinMessage` | string | `&aWelcome...` | Join message |
-| `localChatRadius` | int | `100` | Local chat radius (blocks) |
-| `enableGlobalChat` | bool | `true` | Enable/disable global chat |
-| `enableLocalChat` | bool | `true` | Enable/disable local chat |
-| `globalCommand` | string | `g` | Command for global chat |
-| `globalChatFormat` | string | `&e[G]...` | Global message format |
-| `localChatFormat` | string | `&7[L]...` | Local message format |
-| `mentionNoOneHeard` | bool | `true` | Notify if no one hears local |
-| `noOneHeardMessage` | string | `&7No one...` | "No one heard" text |
-| `enableLuckPermsPrefixes` | bool | `true` | Show the resolved LuckPerms prefix |
-| `enableTabSorting` | bool | `true` | Sort players in TAB using scoreboard teams |
-| `tabGroupOrder` | object | `{}` | Explicit primary-group order; lower values appear first |
-| `tabOrderMetaKey` | string | `tab-order` | LuckPerms meta key used when the group has no config override |
-| `useLuckPermsWeightFallback` | bool | `true` | Use primary-group weight if no explicit or meta order exists |
-| `higherWeightFirst` | bool | `true` | Put larger LuckPerms weights above smaller weights |
-| `defaultTabOrder` | int | `9999` | Order for players without sorting data, clamped to `0..9999` |
-| `tabUpdateIntervalTicks` | int | `20` | Prefix, order and TAB refresh interval; `20` ticks is about one second |
+Сортировка только одна. VChat берёт weight основной группы игрока из LuckPerms и на его основе назначает позицию в TAB.
 
-### LuckPerms TAB sorting / Сортировка TAB через LuckPerms
+Например, при `higherWeightFirst: true`:
 
-The first available source wins / Используется первый найденный источник:
+| Группа | Weight | Позиция |
+|---|---:|---|
+| owner | 1000 | Выше всех |
+| admin | 900 | Ниже owner |
+| moderator | 500 | Ниже admin |
+| default | 0 | Внизу |
 
-1. `tabGroupOrder` override for the player's primary group / настройка primary group в `tabGroupOrder`.
-2. LuckPerms meta value configured by `tabOrderMetaKey` (default: `tab-order`).
-3. Primary-group weight when `useLuckPermsWeightFallback` is enabled.
-4. `defaultTabOrder`.
+Префикс (`[Админ]`) отвечает только за внешний вид. Weight отвечает только за порядок. Игрок без weight располагается внизу.
 
-Lower order values appear first. Group weights are reversed when `higherWeightFirst` is `true`, so a larger weight appears higher.
+## Подстановки и цвета
 
-Меньшее значение порядка отображается выше. При `higherWeightFirst: true` больший LuckPerms weight располагается выше.
+- `%online%` — игроков онлайн.
+- `%max%` — максимальное число игроков.
+- `%player%` — ник получателя TAB.
+- `<name>` — ник автора сообщения.
+- `<message>` — текст сообщения.
+- Цвета: `&6`, `&l`, `&#RRGGBB`, `#RRGGBB`.
 
-Example / Пример:
+## Установка
 
-```json
-"tabGroupOrder": {
-  "owner": 0,
-  "admin": 100,
-  "moderator": 200,
-  "default": 9999
-}
-```
-
-Players with the same order use a nickname-derived secondary key (rare shortened-name collisions get a stable UUID suffix). VChat updates a scoreboard team only when the resolved prefix or order changes. Existing configs are automatically extended with missing fields on `/vchat reload`.
-
-Для игроков с одинаковым порядком используется вторичный ключ из ника; редкие коллизии сокращённых ников получают стабильный UUID-суффикс. VChat обновляет scoreboard-команду только при изменении итогового префикса или порядка. При `/vchat reload` недостающие поля автоматически добавляются в существующий конфиг.
-
-## Installation / Установка
-
-1. Download `VChat-1.x.x.jar` from [releases](https://github.com/GoldNiks/VChat/releases)
-2. Put in `mods/` folder on the server
-3. Restart the server
+1. Поместить `VChat-1.2.0.jar` в папку `mods/` сервера Forge 1.20.1.
+2. Убедиться, что LuckPerms установлен, если нужны префиксы и сортировка.
+3. Перезапустить сервер.
+4. Настроить `config/vchat-config.json5` и выполнить `/vchat reload`.

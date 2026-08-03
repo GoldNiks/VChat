@@ -28,8 +28,7 @@ public class GLReloadCommand {
                                     + VChatTabConfig.enableLuckPermsPrefixes()), false);
                             ctx.getSource().sendSuccess(() -> Component.literal("§7TAB sorting: §f"
                                     + VChatTabConfig.enableTabSorting()), false);
-                            ctx.getSource().sendSuccess(() -> Component.literal("§7TAB order meta: §f"
-                                    + VChatTabConfig.tabOrderMetaKey()), false);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§7TAB sorting source: §fLuckPerms weight"), false);
                             ctx.getSource().sendSuccess(() -> Component.literal("§7TAB refresh ticks: §f"
                                     + VChatTabConfig.tabUpdateIntervalTicks()), false);
                             return 1;

@@ -70,7 +70,7 @@ public class TabListHandler {
 
         LuckPermsBridge.PlayerData luckPerms = LuckPermsBridge.read(player);
         String prefix = showPrefix ? luckPerms.prefix() : "";
-        int order = sortPlayers ? resolveTabOrder(luckPerms) : VChatTabConfig.defaultTabOrder();
+        int order = sortPlayers ? resolveTabOrder(luckPerms) : MAX_TAB_ORDER;
 
         Scoreboard board = player.getScoreboard();
         String teamName = buildTeamName(board, player, order);
@@ -94,23 +94,13 @@ public class TabListHandler {
     }
 
     private static int resolveTabOrder(LuckPermsBridge.PlayerData data) {
-        Integer groupOrder = VChatTabConfig.groupTabOrder(data.primaryGroup());
-        if (groupOrder != null) return groupOrder;
-
-        if (data.metaOrder() != null) {
-            return VChatTabConfig.clampTabOrder(data.metaOrder());
-        }
-
-        if (VChatTabConfig.useLuckPermsWeightFallback() && data.groupWeight() != null) {
-            int weight = VChatTabConfig.clampTabOrder(data.groupWeight());
-            return VChatTabConfig.higherWeightFirst() ? MAX_TAB_ORDER - weight : weight;
-        }
-
-        return VChatTabConfig.defaultTabOrder();
+        if (data.groupWeight() == null) return MAX_TAB_ORDER;
+        int weight = clampOrder(data.groupWeight());
+        return VChatTabConfig.higherWeightFirst() ? MAX_TAB_ORDER - weight : weight;
     }
 
     private static String buildTeamName(Scoreboard board, ServerPlayer player, int order) {
-        String orderPart = String.format(Locale.ROOT, "%04d", VChatTabConfig.clampTabOrder(order));
+        String orderPart = String.format(Locale.ROOT, "%04d", clampOrder(order));
         int playerPartLength = 16 - TEAM_NAMESPACE.length() - orderPart.length();
         String playerPart = player.getScoreboardName().toLowerCase(Locale.ROOT)
                 .replaceAll("[^a-z0-9_]", "");
@@ -130,6 +120,10 @@ public class TabListHandler {
         int readableLength = Math.max(0, playerPartLength - hash.length());
         return TEAM_NAMESPACE + orderPart
                 + playerPart.substring(0, Math.min(playerPart.length(), readableLength)) + hash;
+    }
+
+    private static int clampOrder(int order) {
+        return Math.max(0, Math.min(MAX_TAB_ORDER, order));
     }
 
     private static void removeManagedTeam(ServerPlayer player) {
