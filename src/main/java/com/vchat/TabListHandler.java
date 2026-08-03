@@ -1,5 +1,6 @@
 package com.vchat;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundTabListPacket;
 import net.minecraft.server.level.ServerPlayer;
@@ -114,6 +115,8 @@ public class TabListHandler {
 
         team.setPlayerPrefix(HexUtil.fromLegacy(prefix));
         team.setPlayerSuffix(HexUtil.fromLegacy(suffix));
+        // Sorting teams must never make an unformatted/fallback player name black.
+        team.setColor(ChatFormatting.WHITE);
         board.addPlayerToTeam(player.getScoreboardName(), team);
         PLAYER_STATES.put(player.getUUID(), desired);
         player.refreshTabListName();

@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class VChatTabConfig {
-    private static final int CURRENT_CONFIG_VERSION = 3;
+    private static final int CURRENT_CONFIG_VERSION = 4;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
     public TabSettings tab = new TabSettings();
@@ -170,9 +170,13 @@ public class VChatTabConfig {
 
                   // Настройки верхней и нижней части TAB.
                   "tab": {
-                    // Текст сверху. Доступны: %%online%%, %%max%%, %%player%%.
+                    // Текст сверху. Новая строка: \\n. Пустая строка: \\n\\n.
+                    // Жёсткого лимита строк нет, но для небольших экранов рекомендуется 2-4 строки.
+                    // Доступны: %%online%%, %%max%%, %%player%%.
+                    // Цвета: &0-&f, стили: &l &m &n &o &r, HEX: &#RRGGBB.
                     "header": %s,
-                    // Текст снизу. Доступны те же подстановки.
+                    // Текст снизу. Переносы, цвета и подстановки работают так же.
+                    // Рекомендуется 1-3 строки, чтобы TAB не выходил за границы экрана.
                     "footer": %s,
                     // Личное сообщение игроку после входа на сервер.
                     "joinMessage": %s,
@@ -424,6 +428,19 @@ public class VChatTabConfig {
     }
 
     private static void upgradeOldDefaults(VChatTabConfig config) {
+        TabSettings newDefaults = new TabSettings();
+        String oldHeader = "\n&6&l&nVChat\n\n&7Игроки: &a%online%\n\n&7&m-----------------";
+        String oldFooter = "&7&m-----------------\n\n&7Баланс: &e0";
+        String oldJoinMessage = "&aДобро пожаловать на &6&l&nVChat&a!";
+        if (oldHeader.equals(config.tab.header)) {
+            config.tab.header = newDefaults.header;
+        }
+        if (oldFooter.equals(config.tab.footer)) {
+            config.tab.footer = newDefaults.footer;
+        }
+        if (oldJoinMessage.equals(config.tab.joinMessage)) {
+            config.tab.joinMessage = newDefaults.joinMessage;
+        }
         if ("&e[G] &7<name>: &f<message>".equals(config.chat.globalFormat)) {
             config.chat.globalFormat = new ChatSettings().globalFormat;
         }
@@ -433,10 +450,10 @@ public class VChatTabConfig {
     }
 
     public static final class TabSettings {
-        public String header = "\n&6&l&nVChat\n\n&7Игроки: &a%online%\n\n&7&m-----------------";
-        public String footer = "&7&m-----------------\n\n&7Баланс: &e0";
-        public String joinMessage = "&aДобро пожаловать на &6&l&nVChat&a!";
-        public String playerFormat = "<prefix>&f<name><suffix>";
+        public String header = "\n&6&lValorCraft\n&7Игроки: &f%online%&8/&7%max%\n";
+        public String footer = "\n&8valorcraft.ru\n";
+        public String joinMessage = "&aДобро пожаловать на &6&lValorCraft&a!";
+        public String playerFormat = "<prefix>&f<name><suffix>&r";
         public int updateIntervalTicks = 20;
     }
 
