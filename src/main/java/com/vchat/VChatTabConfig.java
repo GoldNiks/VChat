@@ -14,12 +14,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class VChatTabConfig {
-    private static final int CURRENT_CONFIG_VERSION = 4;
+    private static final int CURRENT_CONFIG_VERSION = 5;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
     public TabSettings tab = new TabSettings();
     public ChatSettings chat = new ChatSettings();
     public LuckPermsSettings luckPerms = new LuckPermsSettings();
+    public FTBTeamsSettings ftbTeams = new FTBTeamsSettings();
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
     private static VChatTabConfig instance;
@@ -74,6 +75,15 @@ public class VChatTabConfig {
     public static boolean enableLuckPermsSuffixes() { ensure(); return instance.luckPerms.showSuffixes; }
     public static boolean enableTabSorting() { ensure(); return instance.luckPerms.sortTabByWeight; }
     public static boolean higherWeightFirst() { ensure(); return instance.luckPerms.higherWeightFirst; }
+    public static boolean ftbTeamsHoverEnabled() { ensure(); return instance.ftbTeams.showTeamOnNameHover; }
+    public static boolean ftbTeamsShowTeamName() { ensure(); return instance.ftbTeams.showTeamName; }
+    public static boolean ftbTeamsShowPlayerRank() { ensure(); return instance.ftbTeams.showPlayerRank; }
+    public static boolean ftbTeamsShowMemberCount() { ensure(); return instance.ftbTeams.showMemberCount; }
+    public static boolean ftbTeamsHideWithoutTeam() { ensure(); return instance.ftbTeams.hideHoverWithoutTeam; }
+    public static String ftbTeamsTeamLabel() { ensure(); return instance.ftbTeams.teamLabel; }
+    public static String ftbTeamsRankLabel() { ensure(); return instance.ftbTeams.rankLabel; }
+    public static String ftbTeamsMembersLabel() { ensure(); return instance.ftbTeams.membersLabel; }
+    public static String ftbTeamsNoTeamText() { ensure(); return instance.ftbTeams.noTeamText; }
 
     private static void ensure() {
         if (instance == null) reload(configDir);
@@ -293,6 +303,25 @@ public class VChatTabConfig {
                     "sortTabByWeight": %s,
                     // true: больший weight выше. false: меньший weight выше.
                     "higherWeightFirst": %s
+                  },
+
+                  // Необязательная интеграция с FTB Teams.
+                  // Если FTB Teams не установлен, VChat продолжит работать без hover-подсказки.
+                  "ftbTeams": {
+                    // Показывать сведения о команде при наведении курсора на ник в чате.
+                    "showTeamOnNameHover": %s,
+                    // Отдельные строки подсказки. Название и роль сохраняют оформление FTB Teams.
+                    "showTeamName": %s,
+                    "showPlayerRank": %s,
+                    "showMemberCount": %s,
+                    // true: у игроков без общей/party-команды подсказки не будет.
+                    // false: будет показан текст noTeamText.
+                    "hideHoverWithoutTeam": %s,
+                    // Цвета и стили подписей поддерживают &-коды и HEX.
+                    "teamLabel": %s,
+                    "rankLabel": %s,
+                    "membersLabel": %s,
+                    "noTeamText": %s
                   }
                 }
                 """.formatted(
@@ -327,7 +356,12 @@ public class VChatTabConfig {
                 GSON.toJson(config.chat.logging.redactedCommands),
                 config.luckPerms.showPrefixes, config.luckPerms.showSuffixes,
                 config.luckPerms.sortTabByWeight,
-                config.luckPerms.higherWeightFirst);
+                config.luckPerms.higherWeightFirst,
+                config.ftbTeams.showTeamOnNameHover,
+                config.ftbTeams.showTeamName, config.ftbTeams.showPlayerRank,
+                config.ftbTeams.showMemberCount, config.ftbTeams.hideHoverWithoutTeam,
+                json(config.ftbTeams.teamLabel), json(config.ftbTeams.rankLabel),
+                json(config.ftbTeams.membersLabel), json(config.ftbTeams.noTeamText));
     }
 
     private static String json(String value) {
@@ -351,6 +385,7 @@ public class VChatTabConfig {
         if (instance.tab == null) instance.tab = new TabSettings();
         if (instance.chat == null) instance.chat = new ChatSettings();
         if (instance.luckPerms == null) instance.luckPerms = new LuckPermsSettings();
+        if (instance.ftbTeams == null) instance.ftbTeams = new FTBTeamsSettings();
         if (instance.chat.playerFormatting == null) {
             instance.chat.playerFormatting = new PlayerFormattingSettings();
         }
@@ -425,6 +460,12 @@ public class VChatTabConfig {
         if (instance.chat.ignore.clearedMessage == null) {
             instance.chat.ignore.clearedMessage = defaultIgnore.clearedMessage;
         }
+
+        FTBTeamsSettings defaultFtbTeams = new FTBTeamsSettings();
+        if (instance.ftbTeams.teamLabel == null) instance.ftbTeams.teamLabel = defaultFtbTeams.teamLabel;
+        if (instance.ftbTeams.rankLabel == null) instance.ftbTeams.rankLabel = defaultFtbTeams.rankLabel;
+        if (instance.ftbTeams.membersLabel == null) instance.ftbTeams.membersLabel = defaultFtbTeams.membersLabel;
+        if (instance.ftbTeams.noTeamText == null) instance.ftbTeams.noTeamText = defaultFtbTeams.noTeamText;
     }
 
     private static void upgradeOldDefaults(VChatTabConfig config) {
@@ -527,5 +568,17 @@ public class VChatTabConfig {
         public boolean showSuffixes = true;
         public boolean sortTabByWeight = true;
         public boolean higherWeightFirst = true;
+    }
+
+    public static final class FTBTeamsSettings {
+        public boolean showTeamOnNameHover = true;
+        public boolean showTeamName = true;
+        public boolean showPlayerRank = true;
+        public boolean showMemberCount = true;
+        public boolean hideHoverWithoutTeam = true;
+        public String teamLabel = "&7Команда: &f";
+        public String rankLabel = "&7Роль: &f";
+        public String membersLabel = "&7Участников: &f";
+        public String noTeamText = "&7Игрок не состоит в команде";
     }
 }

@@ -1,6 +1,6 @@
 # VChat
 
-Приватный серверный мод ValorCraft для Forge 1.20.1: локальный и глобальный чат, настраиваемый TAB и интеграция с LuckPerms.
+Приватный серверный мод ValorCraft для Forge 1.20.1: локальный и глобальный чат, настраиваемый TAB, LuckPerms и FTB Teams.
 
 ## Возможности
 
@@ -15,6 +15,7 @@
 - Постоянный `/ignore`, сохраняемый в `config/vchat-ignore.json`.
 - Безопасное логирование команд без аргументов по умолчанию.
 - Диагностика LuckPerms и форматирования через `/vchat debug`.
+- Цветная информация FTB Teams при наведении курсора на ник в чате.
 
 ## Команды
 
@@ -36,13 +37,13 @@
 
 ```json5
 {
-  "configVersion": 3,
+  "configVersion": 5,
 
   "tab": {
     "header": "...",
     "footer": "...",
     "joinMessage": "...",
-    "playerFormat": "<prefix>&f<name><suffix>",
+    "playerFormat": "<prefix>&f<name><suffix>&r",
     "updateIntervalTicks": 20
   },
 
@@ -109,13 +110,29 @@
     "showSuffixes": true,
     "sortTabByWeight": true,
     "higherWeightFirst": true
+  },
+
+  "ftbTeams": {
+    "showTeamOnNameHover": true,
+    "showTeamName": true,
+    "showPlayerRank": true,
+    "showMemberCount": true,
+    "hideHoverWithoutTeam": true,
+    "teamLabel": "&7Команда: &f",
+    "rankLabel": "&7Роль: &f",
+    "membersLabel": "&7Участников: &f",
+    "noTeamText": "&7Игрок не состоит в команде"
   }
 }
 ```
 
 После изменения выполните `/vchat reload`. Изменение `globalCommand` требует полного перезапуска, потому что команда регистрируется при запуске сервера.
 
-Конфиги старых версий автоматически обновляются до `configVersion: 3` с сохранением настроек. Старый `vchat-tab.json` остаётся резервной копией.
+Конфиги старых версий автоматически обновляются до `configVersion: 5` с сохранением настроек. Старый `vchat-tab.json` остаётся резервной копией.
+
+## FTB Teams hover
+
+Если FTB Teams установлен, при наведении на `<name>` или `<display_name>` в сообщении показываются цветное название команды, роль игрока и количество участников. Личные одиночные команды FTB Teams скрываются при `hideHoverWithoutTeam: true`. Интеграция необязательная: без FTB Teams VChat продолжает работать без подсказки.
 
 ## Placeholders
 
@@ -154,7 +171,7 @@
 
 ## Установка
 
-1. Поместить `VChat-1.4.2.jar` в `mods/` сервера Forge 1.20.1.
+1. Поместить `VChat-1.5.0.jar` в `mods/` сервера Forge 1.20.1.
 2. Установить LuckPerms, если нужны префиксы, permissions и сортировка.
 3. Перезапустить сервер.
 4. Настроить `config/vchat-config.json5` и выполнить `/vchat reload`.

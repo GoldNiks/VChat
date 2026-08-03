@@ -43,6 +43,8 @@ public class GLReloadCommand {
                             ctx.getSource().sendSuccess(() -> Component.literal("§7Mentions / ignore: §f"
                                     + VChatTabConfig.mentionsEnabled() + " / "
                                     + VChatTabConfig.ignoreEnabled()), false);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§7FTB Teams name hover: §f"
+                                    + VChatTabConfig.ftbTeamsHoverEnabled()), false);
                             ctx.getSource().sendSuccess(() -> Component.literal("§7Command arguments in log: §f"
                                     + VChatTabConfig.includeCommandArguments()), false);
                             return 1;
