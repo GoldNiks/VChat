@@ -17,6 +17,10 @@ public final class FormattingSanitizer {
                 if (hex) {
                     String digits = message.substring(i + hexLength - 6, i + hexLength);
                     result.append("&#").append(digits.toUpperCase(Locale.ROOT));
+                } else if (message.charAt(i) == '#') {
+                    // A normal hashtag such as #abcdef must remain readable for
+                    // players who do not have HEX formatting permission.
+                    result.append(message, i, i + hexLength);
                 }
                 i += hexLength;
                 continue;

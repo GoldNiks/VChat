@@ -1,6 +1,7 @@
 package com.vchat;
 
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.GameRules;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -17,16 +18,19 @@ public final class DeathMessageHandler {
     @SubscribeEvent
     public void onLivingDeath(LivingDeathEvent event) {
         if (!VChatTabConfig.hidePlayerHeadsInDeathMessages()
-                || !(event.getEntity() instanceof ServerPlayer victim)) {
+                || !(event.getEntity() instanceof ServerPlayer victim)
+                || !victim.serverLevel().getGameRules().getBoolean(GameRules.RULE_SHOWDEATHMESSAGES)) {
             return;
         }
 
-        // CombatTracker can mention an indirect killer who is not present in
-        // the current DamageSource (for example, a fall after being hit).
-        // Mask every online player for this tick so Chat Heads cannot switch
-        // from the victim to another player name in the same death message.
-        for (ServerPlayer player : victim.getServer().getPlayerList().getPlayers()) {
-            maskForCurrentTick(player);
+        maskForCurrentTick(victim);
+        if (event.getSource().getEntity() instanceof ServerPlayer directKiller) {
+            maskForCurrentTick(directKiller);
+        }
+        // CombatTracker retains indirect attackers, e.g. a player who pushed
+        // the victim before a fall, even when DamageSource no longer has them.
+        if (victim.getKillCredit() instanceof ServerPlayer creditedKiller) {
+            maskForCurrentTick(creditedKiller);
         }
     }
 

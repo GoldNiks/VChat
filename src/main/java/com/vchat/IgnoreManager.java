@@ -20,14 +20,20 @@ public final class IgnoreManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Type DATA_TYPE = new TypeToken<Map<String, Set<String>>>() { }.getType();
     private static Map<String, Set<String>> ignoredPlayers = new HashMap<>();
+    private static final Map<UUID, Long> LAST_MUTATIONS = new HashMap<>();
     private static Path dataFile = Path.of("config", "vchat-ignore.json");
+    private static boolean dirty;
+    private static long dirtySinceNanos;
 
     private IgnoreManager() {
     }
 
     public static synchronized void configure(Path configDir) {
+        flushNow();
         dataFile = configDir.resolve("vchat-ignore.json");
         ignoredPlayers = new HashMap<>();
+        LAST_MUTATIONS.clear();
+        dirty = false;
         if (!Files.exists(dataFile)) return;
 
         try (Reader reader = Files.newBufferedReader(dataFile, StandardCharsets.UTF_8)) {
@@ -48,7 +54,7 @@ public final class IgnoreManager {
             nowIgnored = true;
         }
         if (ignored.isEmpty()) ignoredPlayers.remove(owner.toString());
-        save();
+        markDirty();
         return nowIgnored;
     }
 
@@ -65,8 +71,36 @@ public final class IgnoreManager {
     public static synchronized int clear(UUID owner) {
         Set<String> removed = ignoredPlayers.remove(owner.toString());
         int count = removed == null ? 0 : removed.size();
-        if (count > 0) save();
+        if (count > 0) markDirty();
         return count;
+    }
+
+    public static synchronized boolean canModify(UUID owner) {
+        long cooldownNanos = VChatTabConfig.ignoreCommandCooldownMillis() * 1_000_000L;
+        long now = System.nanoTime();
+        Long previous = LAST_MUTATIONS.get(owner);
+        if (previous != null && now - previous < cooldownNanos) return false;
+        LAST_MUTATIONS.put(owner, now);
+        return true;
+    }
+
+    public static synchronized void clearCooldown(UUID owner) {
+        LAST_MUTATIONS.remove(owner);
+    }
+
+    public static synchronized void flushIfDue() {
+        if (!dirty) return;
+        long intervalNanos = VChatTabConfig.ignoreSaveIntervalMillis() * 1_000_000L;
+        if (System.nanoTime() - dirtySinceNanos >= intervalNanos) save();
+    }
+
+    public static synchronized void flushNow() {
+        if (dirty) save();
+    }
+
+    private static void markDirty() {
+        if (!dirty) dirtySinceNanos = System.nanoTime();
+        dirty = true;
     }
 
     private static void save() {
@@ -80,6 +114,7 @@ public final class IgnoreManager {
             } catch (Exception ignored) {
                 Files.move(temporary, dataFile, StandardCopyOption.REPLACE_EXISTING);
             }
+            dirty = false;
         } catch (Exception e) {
             e.printStackTrace();
         }

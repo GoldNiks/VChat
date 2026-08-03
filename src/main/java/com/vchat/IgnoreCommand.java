@@ -28,6 +28,11 @@ public class IgnoreCommand {
                                         VChatTabConfig.ignoreDisabledMessage()));
                                 return 0;
                             }
+                            if (!IgnoreManager.canModify(owner.getUUID())) {
+                                owner.sendSystemMessage(HexUtil.fromLegacy(
+                                        VChatTabConfig.ignoreCooldownMessage()));
+                                return 0;
+                            }
                             int count = IgnoreManager.clear(owner.getUUID());
                             owner.sendSystemMessage(HexUtil.fromLegacy(
                                     VChatTabConfig.ignoreClearedMessage()
@@ -47,6 +52,11 @@ public class IgnoreCommand {
                             if (owner.getUUID().equals(target.getUUID())) {
                                 owner.sendSystemMessage(HexUtil.fromLegacy(
                                         VChatTabConfig.cannotIgnoreSelfMessage()));
+                                return 0;
+                            }
+                            if (!IgnoreManager.canModify(owner.getUUID())) {
+                                owner.sendSystemMessage(HexUtil.fromLegacy(
+                                        VChatTabConfig.ignoreCooldownMessage()));
                                 return 0;
                             }
 

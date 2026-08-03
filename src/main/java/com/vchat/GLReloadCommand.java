@@ -14,7 +14,12 @@ public class GLReloadCommand {
                 .then(Commands.literal("reload")
                         .executes(ctx -> {
                             var dir = ctx.getSource().getServer().getServerDirectory().toPath().resolve("config");
-                            VChatTabConfig.reload(dir);
+                            boolean reloaded = VChatTabConfig.reload(dir);
+                            if (!reloaded) {
+                                ctx.getSource().sendFailure(Component.literal(
+                                        "§cVChat config contains an error. Previous settings are still active; see server log."));
+                                return 0;
+                            }
                             var server = ctx.getSource().getServer();
                             TabListHandler.refreshAll(server, true);
                             ctx.getSource().sendSuccess(() -> Component.literal("§aVChat config reloaded"), true);

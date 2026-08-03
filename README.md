@@ -38,7 +38,7 @@
 
 ```json5
 {
-  "configVersion": 7,
+  "configVersion": 8,
 
   "tab": {
     "header": "...",
@@ -71,12 +71,13 @@
     "antiSpam": {
       "enabled": true,
       "maxMessageLength": 256,
-      "cooldownMillis": 1000,
+      "cooldownMillis": 500,
       "blockRepeatedMessages": true,
       "repeatWindowSeconds": 15,
       "tooLongMessage": "&cСообщение слишком длинное. Максимум: <max> символов",
       "tooFastMessage": "&cНе так быстро. Подождите ещё <seconds> сек.",
-      "repeatedMessage": "&cНе повторяйте одно и то же сообщение"
+      "repeatedMessage": "&cНе повторяйте одно и то же сообщение",
+      "emptyMessage": "&cСообщение не может быть пустым"
     },
 
     "mentions": {
@@ -95,7 +96,10 @@
       "disabledMessage": "&cСистема игнорирования отключена",
       "cannotIgnoreSelfMessage": "&cНельзя игнорировать самого себя",
       "usageMessage": "&7Использование: &f/ignore <игрок>&7 или &f/ignore clear&7. В списке: &f<count>",
-      "clearedMessage": "&7Список игнорирования очищен. Удалено игроков: &f<count>"
+      "clearedMessage": "&7Список игнорирования очищен. Удалено игроков: &f<count>",
+      "commandCooldownMillis": 1000,
+      "saveIntervalMillis": 1000,
+      "cooldownMessage": "&cНе так быстро. Подождите перед повторным изменением списка"
     },
 
     "logging": {
@@ -134,7 +138,7 @@
 
 После изменения выполните `/vchat reload`. Изменение `globalCommand` требует полного перезапуска, потому что команда регистрируется при запуске сервера.
 
-Конфиги старых версий автоматически обновляются до `configVersion: 7` с сохранением настроек. Старый `vchat-tab.json` остаётся резервной копией.
+Конфиги старых версий автоматически обновляются до `configVersion: 8` с сохранением настроек. Старый стандартный cooldown `1000` мс при миграции уменьшается до `500` мс. Старый `vchat-tab.json` остаётся резервной копией. Последняя проверенная конфигурация хранится в `vchat-config.json5.last-good`: при синтаксической ошибке `/vchat reload` отклонит новый файл и продолжит использовать рабочие настройки, а после перезапуска сможет восстановиться из этой копии.
 
 ## FTB Teams hover
 
@@ -181,7 +185,7 @@
 
 ## Установка
 
-1. Поместить `VChat-1.6.0.jar` в `mods/` сервера Forge 1.20.1.
+1. Поместить `VChat-1.6.1.jar` в `mods/` сервера Forge 1.20.1.
 2. Установить LuckPerms, если нужны префиксы, permissions и сортировка.
 3. Перезапустить сервер.
 4. Настроить `config/vchat-config.json5` и выполнить `/vchat reload`.

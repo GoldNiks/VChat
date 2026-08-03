@@ -14,6 +14,10 @@ public final class AntiSpamManager {
     }
 
     public static boolean allow(ServerPlayer player, String message) {
+        if (message == null || message.isBlank()) {
+            send(player, VChatTabConfig.emptyMessage());
+            return false;
+        }
         if (!VChatTabConfig.antiSpamEnabled() || player.hasPermissions(2)
                 || LuckPermsBridge.hasPermission(player, "vchat.antispam.bypass")) {
             return true;
@@ -26,10 +30,11 @@ public final class AntiSpamManager {
             return false;
         }
 
-        long now = System.currentTimeMillis();
+        long now = System.nanoTime();
         MessageState previous = STATES.get(player.getUUID());
         if (previous != null) {
-            long remaining = VChatTabConfig.cooldownMillis() - (now - previous.sentAt());
+            long elapsedMillis = (now - previous.sentAtNanos()) / 1_000_000L;
+            long remaining = VChatTabConfig.cooldownMillis() - elapsedMillis;
             if (remaining > 0) {
                 String seconds = String.format(Locale.ROOT, "%.1f", remaining / 1000.0);
                 send(player, VChatTabConfig.tooFastMessage().replace("<seconds>", seconds));
@@ -38,7 +43,7 @@ public final class AntiSpamManager {
 
             String normalized = normalize(message);
             if (VChatTabConfig.blockRepeatedMessages()
-                    && now - previous.sentAt() <= VChatTabConfig.repeatWindowMillis()
+                    && elapsedMillis <= VChatTabConfig.repeatWindowMillis()
                     && normalized.equals(previous.normalizedMessage())) {
                 send(player, VChatTabConfig.repeatedMessage());
                 return false;
@@ -61,6 +66,6 @@ public final class AntiSpamManager {
         player.sendSystemMessage(HexUtil.fromLegacy(message));
     }
 
-    private record MessageState(String normalizedMessage, long sentAt) {
+    private record MessageState(String normalizedMessage, long sentAtNanos) {
     }
 }

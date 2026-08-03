@@ -10,11 +10,13 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 
 public class VChatTabConfig {
-    private static final int CURRENT_CONFIG_VERSION = 7;
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("VChat");
+    private static final int CURRENT_CONFIG_VERSION = 8;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
     public TabSettings tab = new TabSettings();
@@ -55,6 +57,7 @@ public class VChatTabConfig {
     public static String tooLongMessage() { ensure(); return instance.chat.antiSpam.tooLongMessage; }
     public static String tooFastMessage() { ensure(); return instance.chat.antiSpam.tooFastMessage; }
     public static String repeatedMessage() { ensure(); return instance.chat.antiSpam.repeatedMessage; }
+    public static String emptyMessage() { ensure(); return instance.chat.antiSpam.emptyMessage; }
     public static boolean mentionsEnabled() { ensure(); return instance.chat.mentions.enabled; }
     public static String mentionFormat() { ensure(); return instance.chat.mentions.highlightFormat; }
     public static boolean mentionSoundEnabled() { ensure(); return instance.chat.mentions.playSound; }
@@ -68,6 +71,9 @@ public class VChatTabConfig {
     public static String cannotIgnoreSelfMessage() { ensure(); return instance.chat.ignore.cannotIgnoreSelfMessage; }
     public static String ignoreUsageMessage() { ensure(); return instance.chat.ignore.usageMessage; }
     public static String ignoreClearedMessage() { ensure(); return instance.chat.ignore.clearedMessage; }
+    public static long ignoreCommandCooldownMillis() { ensure(); return instance.chat.ignore.commandCooldownMillis; }
+    public static long ignoreSaveIntervalMillis() { ensure(); return instance.chat.ignore.saveIntervalMillis; }
+    public static String ignoreCooldownMessage() { ensure(); return instance.chat.ignore.cooldownMessage; }
     public static boolean logChatMessages() { ensure(); return instance.chat.logging.logChatMessages; }
     public static boolean logCommands() { ensure(); return instance.chat.logging.logCommands; }
     public static boolean includeCommandArguments() { ensure(); return instance.chat.logging.includeCommandArguments; }
@@ -91,16 +97,45 @@ public class VChatTabConfig {
     }
 
     private static void ensure() {
-        if (instance == null) reload(configDir);
+        if (instance == null) {
+            reload(configDir);
+            if (instance == null) {
+                instance = new VChatTabConfig();
+                normalize();
+                IgnoreManager.configure(configDir);
+            }
+        }
     }
 
-    public static void reload(Path dir) {
+    public static void initialize(Path dir) {
+        reload(dir);
+        if (instance == null) {
+            throw new IllegalStateException("VChat config is invalid and no last-working backup is available");
+        }
+    }
+
+    public static boolean reload(Path dir) {
         configDir = dir;
         Path file = dir.resolve("vchat-config.json5");
         if (Files.exists(file)) {
-            instance = read(file);
+            VChatTabConfig previous = instance;
+            VChatTabConfig loaded = read(file);
+            boolean recoveredFromBackup = false;
+            if (loaded == null && previous == null) {
+                Path backup = backupPath(file);
+                if (Files.exists(backup)) {
+                    loaded = read(backup);
+                    recoveredFromBackup = loaded != null;
+                    if (recoveredFromBackup) {
+                        LOGGER.warn("Loaded last working VChat config backup: {}", backup);
+                    }
+                }
+            }
+            if (loaded == null) return false;
+            instance = loaded;
+            if (!recoveredFromBackup) backupConfig(file);
             IgnoreManager.configure(dir);
-            return;
+            return !recoveredFromBackup;
         }
 
         Path legacyFile = dir.resolve("vchat-tab.json");
@@ -110,17 +145,21 @@ public class VChatTabConfig {
             instance = new VChatTabConfig();
         }
         normalize();
-        writeTemplate(file, instance);
+        if (!writeTemplate(file, instance)) return false;
+        backupConfig(file);
         IgnoreManager.configure(dir);
+        return true;
     }
 
     private static VChatTabConfig read(Path file) {
+        VChatTabConfig previous = instance;
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
             int fileVersion = getInt(json, "configVersion", 1);
             VChatTabConfig loaded = GSON.fromJson(json, VChatTabConfig.class);
             instance = loaded;
             normalize();
+            validate();
             if (fileVersion < CURRENT_CONFIG_VERSION) {
                 if (json.has("luckPerms") && json.get("luckPerms").isJsonObject()) {
                     JsonObject oldLuckPerms = json.getAsJsonObject("luckPerms");
@@ -128,14 +167,21 @@ public class VChatTabConfig {
                         instance.luckPerms.showSuffixes = instance.luckPerms.showPrefixes;
                     }
                 }
+                if (fileVersion < 8 && instance.chat.antiSpam.cooldownMillis == 1000) {
+                    instance.chat.antiSpam.cooldownMillis = 500;
+                }
                 upgradeOldDefaults(instance);
                 instance.configVersion = CURRENT_CONFIG_VERSION;
-                writeTemplate(file, instance);
+                if (!writeTemplate(file, instance)) {
+                    instance = previous;
+                    return null;
+                }
             }
             return instance;
         } catch (Exception e) {
-            e.printStackTrace();
-            return new VChatTabConfig();
+            instance = previous;
+            LOGGER.error("VChat config was not reloaded; keeping the last working settings: {}", file, e);
+            return null;
         }
     }
 
@@ -168,12 +214,33 @@ public class VChatTabConfig {
         return migrated;
     }
 
-    private static void writeTemplate(Path file, VChatTabConfig config) {
+    private static boolean writeTemplate(Path file, VChatTabConfig config) {
         try {
             Files.createDirectories(file.getParent());
-            Files.writeString(file, annotatedJson(config), StandardCharsets.UTF_8);
+            Path temporary = file.resolveSibling(file.getFileName() + ".tmp");
+            Files.writeString(temporary, annotatedJson(config), StandardCharsets.UTF_8);
+            try {
+                Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING,
+                        StandardCopyOption.ATOMIC_MOVE);
+            } catch (IOException ignored) {
+                Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING);
+            }
+            return true;
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.error("Could not write VChat config: {}", file, e);
+            return false;
+        }
+    }
+
+    private static Path backupPath(Path file) {
+        return file.resolveSibling(file.getFileName() + ".last-good");
+    }
+
+    private static void backupConfig(Path file) {
+        try {
+            Files.copy(file, backupPath(file), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            LOGGER.warn("Could not update VChat last-working config backup: {}", file, e);
         }
     }
 
@@ -211,6 +278,7 @@ public class VChatTabConfig {
                     // Включить обычный локальный чат.
                     "enableLocal": %s,
                     // Команда глобального чата без символа /. Например: g означает /g сообщение.
+                    // Разрешены строчные a-z, цифры, _, - и :; максимум 32 символа.
                     // После изменения имени команды требуется перезапуск сервера.
                     "globalCommand": %s,
                     // Формат глобального сообщения. Все placeholders перечислены ниже в README.
@@ -259,7 +327,9 @@ public class VChatTabConfig {
                       // В сообщениях доступны <max> и <seconds>.
                       "tooLongMessage": %s,
                       "tooFastMessage": %s,
-                      "repeatedMessage": %s
+                      "repeatedMessage": %s,
+                      // Ответ на ! без текста или сообщение только из пробелов.
+                      "emptyMessage": %s
                     },
 
                     // Упоминания игроков через @Ник.
@@ -284,7 +354,12 @@ public class VChatTabConfig {
                       "cannotIgnoreSelfMessage": %s,
                       // В сообщении доступен <count>.
                       "usageMessage": %s,
-                      "clearedMessage": %s
+                      "clearedMessage": %s,
+                      // Защита команды /ignore от частых переключений.
+                      "commandCooldownMillis": %d,
+                      // Изменения объединяются и записываются на диск не чаще этого интервала.
+                      "saveIntervalMillis": %d,
+                      "cooldownMessage": %s
                     },
 
                     // Безопасное серверное логирование.
@@ -356,7 +431,7 @@ public class VChatTabConfig {
                 config.chat.antiSpam.blockRepeatedMessages,
                 Math.max(0, config.chat.antiSpam.repeatWindowSeconds),
                 json(config.chat.antiSpam.tooLongMessage), json(config.chat.antiSpam.tooFastMessage),
-                json(config.chat.antiSpam.repeatedMessage),
+                json(config.chat.antiSpam.repeatedMessage), json(config.chat.antiSpam.emptyMessage),
                 config.chat.mentions.enabled, json(config.chat.mentions.highlightFormat),
                 config.chat.mentions.playSound, json(config.chat.mentions.sound),
                 config.chat.mentions.volume, config.chat.mentions.pitch,
@@ -365,6 +440,9 @@ public class VChatTabConfig {
                 json(config.chat.ignore.cannotIgnoreSelfMessage),
                 json(config.chat.ignore.usageMessage),
                 json(config.chat.ignore.clearedMessage),
+                Math.max(0, config.chat.ignore.commandCooldownMillis),
+                Math.max(50, config.chat.ignore.saveIntervalMillis),
+                json(config.chat.ignore.cooldownMessage),
                 config.chat.logging.logChatMessages, config.chat.logging.logCommands,
                 config.chat.logging.includeCommandArguments,
                 GSON.toJson(config.chat.logging.redactedCommands),
@@ -413,6 +491,17 @@ public class VChatTabConfig {
             instance.chat.logging.redactedCommands = new ArrayList<>(new LoggingSettings().redactedCommands);
         }
         instance.chat.logging.redactedCommands.removeIf(command -> command == null || command.isBlank());
+        instance.tab.updateIntervalTicks = Math.max(1, instance.tab.updateIntervalTicks);
+        instance.chat.localRadius = Math.max(0, instance.chat.localRadius);
+        instance.chat.antiSpam.maxMessageLength = Math.max(1, instance.chat.antiSpam.maxMessageLength);
+        instance.chat.antiSpam.cooldownMillis = Math.max(0, instance.chat.antiSpam.cooldownMillis);
+        instance.chat.antiSpam.repeatWindowSeconds = Math.max(0, instance.chat.antiSpam.repeatWindowSeconds);
+        instance.chat.ignore.commandCooldownMillis = Math.max(0, instance.chat.ignore.commandCooldownMillis);
+        instance.chat.ignore.saveIntervalMillis = Math.max(50, instance.chat.ignore.saveIntervalMillis);
+        if (!Float.isFinite(instance.chat.mentions.volume)) instance.chat.mentions.volume = 0.8F;
+        if (!Float.isFinite(instance.chat.mentions.pitch)) instance.chat.mentions.pitch = 1.2F;
+        instance.chat.mentions.volume = Math.max(0.0F, Math.min(4.0F, instance.chat.mentions.volume));
+        instance.chat.mentions.pitch = Math.max(0.01F, Math.min(2.0F, instance.chat.mentions.pitch));
 
         TabSettings defaultTab = new TabSettings();
         if (instance.tab.header == null) instance.tab.header = defaultTab.header;
@@ -448,6 +537,9 @@ public class VChatTabConfig {
         if (instance.chat.antiSpam.repeatedMessage == null) {
             instance.chat.antiSpam.repeatedMessage = defaultAntiSpam.repeatedMessage;
         }
+        if (instance.chat.antiSpam.emptyMessage == null) {
+            instance.chat.antiSpam.emptyMessage = defaultAntiSpam.emptyMessage;
+        }
 
         MentionSettings defaultMentions = new MentionSettings();
         if (instance.chat.mentions.highlightFormat == null) {
@@ -476,12 +568,26 @@ public class VChatTabConfig {
         if (instance.chat.ignore.clearedMessage == null) {
             instance.chat.ignore.clearedMessage = defaultIgnore.clearedMessage;
         }
+        if (instance.chat.ignore.cooldownMessage == null) {
+            instance.chat.ignore.cooldownMessage = defaultIgnore.cooldownMessage;
+        }
 
         FTBTeamsSettings defaultFtbTeams = new FTBTeamsSettings();
         if (instance.ftbTeams.teamLabel == null) instance.ftbTeams.teamLabel = defaultFtbTeams.teamLabel;
         if (instance.ftbTeams.rankLabel == null) instance.ftbTeams.rankLabel = defaultFtbTeams.rankLabel;
         if (instance.ftbTeams.membersLabel == null) instance.ftbTeams.membersLabel = defaultFtbTeams.membersLabel;
         if (instance.ftbTeams.noTeamText == null) instance.ftbTeams.noTeamText = defaultFtbTeams.noTeamText;
+    }
+
+    private static void validate() {
+        if (!instance.chat.globalCommand.matches("[a-z0-9_:-]{1,32}")) {
+            throw new IllegalArgumentException("chat.globalCommand must contain only a-z, 0-9, _, : or -");
+        }
+        if (instance.tab.header.length() > 32767 || instance.tab.footer.length() > 32767
+                || instance.chat.globalFormat.length() > 32767
+                || instance.chat.localFormat.length() > 32767) {
+            throw new IllegalArgumentException("A VChat format string is too long");
+        }
     }
 
     private static void upgradeOldDefaults(VChatTabConfig config) {
@@ -546,12 +652,13 @@ public class VChatTabConfig {
     public static final class AntiSpamSettings {
         public boolean enabled = true;
         public int maxMessageLength = 256;
-        public int cooldownMillis = 1000;
+        public int cooldownMillis = 500;
         public boolean blockRepeatedMessages = true;
         public int repeatWindowSeconds = 15;
         public String tooLongMessage = "&cСообщение слишком длинное. Максимум: <max> символов";
         public String tooFastMessage = "&cНе так быстро. Подождите ещё <seconds> сек.";
         public String repeatedMessage = "&cНе повторяйте одно и то же сообщение";
+        public String emptyMessage = "&cСообщение не может быть пустым";
     }
 
     public static final class MentionSettings {
@@ -571,6 +678,9 @@ public class VChatTabConfig {
         public String cannotIgnoreSelfMessage = "&cНельзя игнорировать самого себя";
         public String usageMessage = "&7Использование: &f/ignore <игрок>&7 или &f/ignore clear&7. В списке: &f<count>";
         public String clearedMessage = "&7Список игнорирования очищен. Удалено игроков: &f<count>";
+        public int commandCooldownMillis = 1000;
+        public int saveIntervalMillis = 1000;
+        public String cooldownMessage = "&cНе так быстро. Подождите перед повторным изменением списка";
     }
 
     public static final class LoggingSettings {

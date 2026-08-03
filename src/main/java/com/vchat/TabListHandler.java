@@ -70,8 +70,6 @@ public class TabListHandler {
     }
 
     private static void refreshPlayerTeam(ServerPlayer player, boolean force) {
-        boolean showPrefix = VChatTabConfig.enableLuckPermsPrefixes();
-        boolean showSuffix = VChatTabConfig.enableLuckPermsSuffixes();
         boolean sortPlayers = VChatTabConfig.enableTabSorting();
         LuckPermsBridge.PlayerData luckPerms = LuckPermsBridge.read(player);
         String displaySignature = VChatTabConfig.tabPlayerFormat()
@@ -81,7 +79,9 @@ public class TabListHandler {
                 + '|' + player.getDisplayName().getString();
         boolean displayChanged = force || !displaySignature.equals(TAB_DISPLAY_STATES.get(player.getUUID()));
 
-        if (!showPrefix && !showSuffix && !sortPlayers) {
+        // Prefixes and suffixes are rendered by TabListNameFormat and do not
+        // require taking ownership of a vanilla scoreboard team.
+        if (!sortPlayers) {
             removeManagedTeam(player);
             if (displayChanged) player.refreshTabListName();
             TAB_DISPLAY_STATES.put(player.getUUID(), displaySignature);
@@ -158,7 +158,7 @@ public class TabListHandler {
         PlayerTabState state = PLAYER_STATES.remove(player.getUUID());
         PlayerTeam team = state == null ? board.getPlayersTeam(player.getScoreboardName())
                 : board.getPlayerTeam(state.teamName());
-        if (team != null && team.getName().startsWith(TEAM_NAMESPACE)
+        if (team != null && isManagedTeamName(team.getName())
                 && team.getPlayers().contains(player.getScoreboardName())) {
             board.removePlayerFromTeam(player.getScoreboardName(), team);
             if (team.getPlayers().isEmpty()) {
@@ -166,6 +166,12 @@ public class TabListHandler {
             }
         }
         TAB_DISPLAY_STATES.remove(player.getUUID());
+    }
+
+    private static boolean isManagedTeamName(String name) {
+        // Exact shape prevents VChat from deleting an unrelated team that only
+        // happens to begin with "vch".
+        return name != null && name.matches("vch\\d{4}[a-z0-9_]{1,9}");
     }
 
     public static void sendTabList(ServerPlayer player) {

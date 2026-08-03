@@ -9,8 +9,10 @@ import java.util.UUID;
  * Optional LuckPerms integration without a hard runtime dependency.
  */
 public final class LuckPermsBridge {
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("VChat");
     private static Object api;
     private static boolean classMissing;
+    private static boolean reflectionFailureLogged;
 
     private LuckPermsBridge() {
     }
@@ -34,7 +36,8 @@ public final class LuckPermsBridge {
             Integer groupWeight = readGroupWeight(luckPerms, primaryGroup);
 
             return new PlayerData(prefix, suffix, primaryGroup, groupWeight);
-        } catch (ReflectiveOperationException | LinkageError ignored) {
+        } catch (ReflectiveOperationException | LinkageError error) {
+            warnOnce(error);
             return PlayerData.EMPTY;
         }
     }
@@ -52,6 +55,7 @@ public final class LuckPermsBridge {
             return null;
         } catch (ReflectiveOperationException | LinkageError e) {
             // LuckPerms may not be ready during early startup. Retry on the next refresh.
+            warnOnce(e);
             return null;
         }
     }
@@ -87,9 +91,16 @@ public final class LuckPermsBridge {
             Object result = permissionData.getClass().getMethod("checkPermission", String.class)
                     .invoke(permissionData, permission);
             return (boolean) result.getClass().getMethod("asBoolean").invoke(result);
-        } catch (ReflectiveOperationException | LinkageError ignored) {
+        } catch (ReflectiveOperationException | LinkageError error) {
+            warnOnce(error);
             return false;
         }
+    }
+
+    private static void warnOnce(Throwable error) {
+        if (reflectionFailureLogged) return;
+        reflectionFailureLogged = true;
+        LOGGER.warn("LuckPerms integration failed; prefixes and VChat permissions may be unavailable", error);
     }
 
     private static String stringValue(Object value) {

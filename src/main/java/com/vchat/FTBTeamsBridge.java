@@ -11,12 +11,14 @@ import java.util.Optional;
  * Optional FTB Teams integration without a hard runtime dependency.
  */
 public final class FTBTeamsBridge {
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("VChat");
     private static final String API_CLASS = "dev.ftb.mods.ftbteams.api.FTBTeamsAPI";
     private static final String API_INTERFACE = API_CLASS + "$API";
     private static final String TEAM_MANAGER_INTERFACE = "dev.ftb.mods.ftbteams.api.TeamManager";
     private static final String TEAM_INTERFACE = "dev.ftb.mods.ftbteams.api.Team";
     private static final String TEAM_RANK_CLASS = "dev.ftb.mods.ftbteams.api.TeamRank";
     private static boolean classMissing;
+    private static boolean reflectionFailureLogged;
 
     private FTBTeamsBridge() {
     }
@@ -71,7 +73,11 @@ public final class FTBTeamsBridge {
             }
 
             return hasLine ? hover : null;
-        } catch (ReflectiveOperationException | LinkageError ignored) {
+        } catch (ReflectiveOperationException | LinkageError error) {
+            if (!reflectionFailureLogged) {
+                reflectionFailureLogged = true;
+                LOGGER.warn("FTB Teams integration failed; name hover is temporarily unavailable", error);
+            }
             return null;
         }
     }
