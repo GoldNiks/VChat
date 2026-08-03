@@ -1,87 +1,121 @@
 # VChat
 
-Приватный серверный мод ValorCraft для Forge 1.20.1: локальный и глобальный чат, настраиваемый TAB, префиксы и сортировка LuckPerms.
+Приватный серверный мод ValorCraft для Forge 1.20.1: локальный и глобальный чат, настраиваемый TAB и интеграция с LuckPerms.
 
 ## Возможности
 
+- Локальный чат работает только в текущем измерении и заданном радиусе.
 - Глобальный чат: `/g <сообщение>` или `!сообщение`.
-- Локальный чат с настраиваемым радиусом.
-- Отдельные форматы локального чата, глобального чата и строки игрока в TAB.
-- Prefix, suffix, primary group и weight из LuckPerms.
+- Prefix, suffix, primary group и weight LuckPerms.
+- Форматы локального чата, глобального чата и строки игрока в TAB.
 - Сортировка TAB по weight основной группы.
-- HEX, обычные цвета и стили с permissions LuckPerms.
-- Перезагрузка настроек без перезапуска сервера.
+- HEX и стили с отдельными permissions.
+- Антиспам, ограничение длины и блокировка повторов.
+- Упоминания `@Ник` с подсветкой и звуком.
+- Постоянный `/ignore`, сохраняемый в `config/vchat-ignore.json`.
+- Безопасное логирование команд без аргументов по умолчанию.
+- Диагностика LuckPerms и форматирования через `/vchat debug`.
 
 ## Команды
 
-| Команда | Описание |
-|---|---|
-| `/g <сообщение>` | Отправить сообщение в глобальный чат |
-| `/vchat reload` | Перечитать конфиг и сразу обновить TAB |
-| `/vchat status` | Показать активные настройки TAB и форматирования |
+| Команда | Кто может использовать | Описание |
+|---|---|---|
+| `/g <сообщение>` | Все | Глобальный чат |
+| `/ignore <игрок>` | Все | Добавить или убрать игрока из ignore-списка |
+| `/ignore` | Все | Показать подсказку и размер ignore-списка |
+| `/ignore clear` | Все | Очистить ignore-список, включая офлайн-игроков |
+| `/vchat reload` | Уровень 2 | Перечитать конфиг и обновить TAB |
+| `/vchat status` | Уровень 2 | Показать активные настройки |
+| `/vchat debug <игрок>` | Уровень 2 | Показать group, weight, prefix, suffix и permissions |
 
 ## Конфиг
 
-При первом запуске создаётся `config/vchat-config.json5`. Формат JSON5 разрешает поясняющие комментарии `//`.
+При первом запуске создаётся `config/vchat-config.json5`. JSON5 поддерживает комментарии `//`; каждое поле в сгенерированном файле подписано по-русски.
+
+Основная структура:
 
 ```json5
 {
-  // Версия структуры конфига. Не изменяйте вручную.
-  "configVersion": 2,
+  "configVersion": 3,
 
-  // Настройки внешнего вида TAB.
   "tab": {
-    // Сверху TAB. Доступны: %online%, %max%, %player%.
-    "header": "\n&6&l&nVChat\n\n&7Игроки: &a%online%\n\n&7&m-----------------",
-    // Снизу TAB. Доступны те же подстановки.
-    "footer": "&7&m-----------------\n\n&7Баланс: &e0",
-    // Личное сообщение после входа.
-    "joinMessage": "&aДобро пожаловать на &6&l&nVChat&a!",
-    // Строка каждого игрока в TAB.
+    "header": "...",
+    "footer": "...",
+    "joinMessage": "...",
     "playerFormat": "<prefix>&f<name><suffix>",
-    // 20 тиков = примерно 1 секунда.
     "updateIntervalTicks": 20
   },
 
-  // Локальный и глобальный чат.
   "chat": {
     "localRadius": 100,
     "enableGlobal": true,
     "enableLocal": true,
-    // g означает команду /g сообщение. Для изменения имени команды нужен restart.
     "globalCommand": "g",
     "globalFormat": "&e[G] <prefix>&f<name><suffix>&7: &f<message>",
     "localFormat": "&7[L] <prefix>&f<name><suffix>&7: &f<message>",
     "notifyWhenNoOneHeard": true,
     "noOneHeardMessage": "&7Вас никто не услышал",
+    "globalDisabledMessage": "&cГлобальный чат сейчас отключён",
+    "localDisabledMessage": "&cЛокальный чат сейчас отключён",
 
-    // Оформление внутри текста, который пишет игрок.
     "playerFormatting": {
       "enabled": true,
-      // false требует permission vchat.format.color.
       "colorsForEveryone": false,
-      // false требует permission vchat.format.hex.
       "hexForEveryone": false,
-      // false требует permission vchat.format.style.
       "stylesForEveryone": false,
-      // &k лучше оставить только администрации.
-      // false требует permission vchat.format.obfuscated.
       "obfuscatedForEveryone": false
+    },
+
+    "antiSpam": {
+      "enabled": true,
+      "maxMessageLength": 256,
+      "cooldownMillis": 1000,
+      "blockRepeatedMessages": true,
+      "repeatWindowSeconds": 15,
+      "tooLongMessage": "&cСообщение слишком длинное. Максимум: <max> символов",
+      "tooFastMessage": "&cНе так быстро. Подождите ещё <seconds> сек.",
+      "repeatedMessage": "&cНе повторяйте одно и то же сообщение"
+    },
+
+    "mentions": {
+      "enabled": true,
+      "highlightFormat": "&e&l@<name>&r&f",
+      "playSound": true,
+      "sound": "minecraft:entity.experience_orb.pickup",
+      "volume": 0.8,
+      "pitch": 1.2
+    },
+
+    "ignore": {
+      "enabled": true,
+      "addedMessage": "&7Вы больше не видите сообщения игрока &f<name>",
+      "removedMessage": "&7Вы снова видите сообщения игрока &f<name>",
+      "disabledMessage": "&cСистема игнорирования отключена",
+      "cannotIgnoreSelfMessage": "&cНельзя игнорировать самого себя",
+      "usageMessage": "&7Использование: &f/ignore <игрок>&7 или &f/ignore clear&7. В списке: &f<count>",
+      "clearedMessage": "&7Список игнорирования очищен. Удалено игроков: &f<count>"
+    },
+
+    "logging": {
+      "logChatMessages": true,
+      "logCommands": true,
+      "includeCommandArguments": false,
+      "redactedCommands": ["login", "l", "register", "reg", "changepassword", "cp", "password", "2fa"]
     }
   },
 
-  // Если LuckPerms отсутствует, VChat продолжит работать без префиксов.
   "luckPerms": {
     "showPrefixes": true,
     "showSuffixes": true,
     "sortTabByWeight": true,
-    // true: больший weight располагается выше.
     "higherWeightFirst": true
   }
 }
 ```
 
-После изменения файла выполните `/vchat reload`. Конфиги старых версий автоматически обновляются до актуальной структуры с комментариями. Старый `vchat-tab.json` сохраняется как резервная копия.
+После изменения выполните `/vchat reload`. Изменение `globalCommand` требует полного перезапуска, потому что команда регистрируется при запуске сервера.
+
+Конфиги старых версий автоматически обновляются до `configVersion: 3` с сохранением настроек. Старый `vchat-tab.json` остаётся резервной копией.
 
 ## Placeholders
 
@@ -89,60 +123,38 @@
 
 | Placeholder | Значение |
 |---|---|
-| `<prefix>` | Активный prefix LuckPerms с цветами |
-| `<suffix>` | Активный suffix LuckPerms с цветами |
-| `<name>` | Настоящий ник игрока |
-| `<display_name>` | Текущее отображаемое имя игрока |
+| `<prefix>` | Prefix LuckPerms с цветами |
+| `<suffix>` | Suffix LuckPerms с цветами |
+| `<name>` | Настоящий ник |
+| `<display_name>` | Текущее отображаемое имя |
 | `<group>` | Primary group LuckPerms |
-| `<world>` | Идентификатор текущего мира |
+| `<world>` | Текущее измерение |
 | `<channel>` | `global`, `local` или `tab` |
-| `<message>` | Текст сообщения; используется в форматах чата |
+| `<message>` | Текст сообщения |
 
-В `header` и `footer` TAB доступны:
-
-| Placeholder | Значение |
-|---|---|
-| `%online%` | Игроков онлайн |
-| `%max%` | Максимальное число игроков |
-| `%player%` | Ник игрока, которому отправляется TAB |
+В header/footer: `%online%`, `%max%`, `%player%`.
 
 ## Цвета и permissions
 
-Конфиг, префиксы и разрешённые сообщения игроков поддерживают:
-
-- `&6` — обычный цвет;
-- `&l`, `&m`, `&n`, `&o`, `&r` — стили;
-- `&k` — obfuscated;
-- `#RRGGBB`, `&#RRGGBB`, `&%23RRGGBB` — HEX;
-- прописные варианты вроде `&A` и `&#FFAA00`.
-
-Если соответствующий параметр `ForEveryone` равен `false`, право выдаётся через LuckPerms:
+Поддерживаются `&6`, `&l`, `#RRGGBB`, `&#RRGGBB`, `&%23RRGGBB` и прописные варианты вроде `&A`.
 
 | Permission | Возможность |
 |---|---|
 | `vchat.format.color` | Цвета `&0`–`&f` |
 | `vchat.format.hex` | HEX-цвета |
-| `vchat.format.style` | Bold, italic, underline, strikethrough и reset |
+| `vchat.format.style` | Bold, italic, underline, strikethrough, reset |
 | `vchat.format.obfuscated` | Эффект `&k` |
+| `vchat.antispam.bypass` | Обход cooldown, повторов и ограничения длины |
 
-Операторы с уровнем прав 2 всегда могут использовать всё оформление.
+Параметры `ForEveryone: true` разрешают соответствующее оформление без permission. Операторы уровня 2 имеют все разрешения форматирования и обходят антиспам.
 
-## Сортировка LuckPerms
+## Логирование
 
-Сортировка только одна: VChat получает weight основной группы игрока. При `higherWeightFirst: true` больший weight располагается выше. Prefix отвечает за внешний вид и не влияет на порядок.
-
-| Группа | Weight | Позиция |
-|---|---:|---|
-| owner | 1000 | Выше всех |
-| admin | 900 | Ниже owner |
-| moderator | 500 | Ниже admin |
-| default | 0 | Внизу |
-
-Игрок без weight располагается внизу. При одинаковом порядке используется вторичный ключ из ника.
+Безопасное значение по умолчанию — `includeCommandArguments: false`: в лог попадает название команды, но не её аргументы. Команды из `redactedCommands` скрывают аргументы всегда, даже если глобальная запись аргументов включена. Поддерживаются также namespaced-варианты вроде `/tiauth:login`.
 
 ## Установка
 
-1. Поместить `VChat-1.3.0.jar` в `mods/` сервера Forge 1.20.1.
+1. Поместить `VChat-1.4.0.jar` в `mods/` сервера Forge 1.20.1.
 2. Установить LuckPerms, если нужны префиксы, permissions и сортировка.
 3. Перезапустить сервер.
 4. Настроить `config/vchat-config.json5` и выполнить `/vchat reload`.

@@ -11,5 +11,6 @@ public class VChatMod {
         MinecraftForge.EVENT_BUS.register(new ChatEventHandler());
         MinecraftForge.EVENT_BUS.register(new TabListHandler());
         MinecraftForge.EVENT_BUS.register(new GLReloadCommand());
+        MinecraftForge.EVENT_BUS.register(new IgnoreCommand());
     }
 }

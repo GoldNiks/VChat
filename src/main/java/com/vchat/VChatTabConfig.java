@@ -10,9 +10,11 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 public class VChatTabConfig {
-    private static final int CURRENT_CONFIG_VERSION = 2;
+    private static final int CURRENT_CONFIG_VERSION = 3;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
     public TabSettings tab = new TabSettings();
@@ -36,11 +38,38 @@ public class VChatTabConfig {
     public static String localChatFormat() { ensure(); return instance.chat.localFormat; }
     public static boolean mentionNoOneHeard() { ensure(); return instance.chat.notifyWhenNoOneHeard; }
     public static String noOneHeardMessage() { ensure(); return instance.chat.noOneHeardMessage; }
+    public static String globalDisabledMessage() { ensure(); return instance.chat.globalDisabledMessage; }
+    public static String localDisabledMessage() { ensure(); return instance.chat.localDisabledMessage; }
     public static boolean playerFormattingEnabled() { ensure(); return instance.chat.playerFormatting.enabled; }
     public static boolean colorsForEveryone() { ensure(); return instance.chat.playerFormatting.colorsForEveryone; }
     public static boolean hexForEveryone() { ensure(); return instance.chat.playerFormatting.hexForEveryone; }
     public static boolean stylesForEveryone() { ensure(); return instance.chat.playerFormatting.stylesForEveryone; }
     public static boolean obfuscatedForEveryone() { ensure(); return instance.chat.playerFormatting.obfuscatedForEveryone; }
+    public static boolean antiSpamEnabled() { ensure(); return instance.chat.antiSpam.enabled; }
+    public static int maxMessageLength() { ensure(); return Math.max(1, instance.chat.antiSpam.maxMessageLength); }
+    public static long cooldownMillis() { ensure(); return Math.max(0, instance.chat.antiSpam.cooldownMillis); }
+    public static boolean blockRepeatedMessages() { ensure(); return instance.chat.antiSpam.blockRepeatedMessages; }
+    public static long repeatWindowMillis() { ensure(); return Math.max(0, instance.chat.antiSpam.repeatWindowSeconds) * 1000L; }
+    public static String tooLongMessage() { ensure(); return instance.chat.antiSpam.tooLongMessage; }
+    public static String tooFastMessage() { ensure(); return instance.chat.antiSpam.tooFastMessage; }
+    public static String repeatedMessage() { ensure(); return instance.chat.antiSpam.repeatedMessage; }
+    public static boolean mentionsEnabled() { ensure(); return instance.chat.mentions.enabled; }
+    public static String mentionFormat() { ensure(); return instance.chat.mentions.highlightFormat; }
+    public static boolean mentionSoundEnabled() { ensure(); return instance.chat.mentions.playSound; }
+    public static String mentionSound() { ensure(); return instance.chat.mentions.sound; }
+    public static float mentionVolume() { ensure(); return Math.max(0.0F, instance.chat.mentions.volume); }
+    public static float mentionPitch() { ensure(); return Math.max(0.01F, instance.chat.mentions.pitch); }
+    public static boolean ignoreEnabled() { ensure(); return instance.chat.ignore.enabled; }
+    public static String ignoreAddedMessage() { ensure(); return instance.chat.ignore.addedMessage; }
+    public static String ignoreRemovedMessage() { ensure(); return instance.chat.ignore.removedMessage; }
+    public static String ignoreDisabledMessage() { ensure(); return instance.chat.ignore.disabledMessage; }
+    public static String cannotIgnoreSelfMessage() { ensure(); return instance.chat.ignore.cannotIgnoreSelfMessage; }
+    public static String ignoreUsageMessage() { ensure(); return instance.chat.ignore.usageMessage; }
+    public static String ignoreClearedMessage() { ensure(); return instance.chat.ignore.clearedMessage; }
+    public static boolean logChatMessages() { ensure(); return instance.chat.logging.logChatMessages; }
+    public static boolean logCommands() { ensure(); return instance.chat.logging.logCommands; }
+    public static boolean includeCommandArguments() { ensure(); return instance.chat.logging.includeCommandArguments; }
+    public static List<String> redactedCommands() { ensure(); return List.copyOf(instance.chat.logging.redactedCommands); }
     public static boolean enableLuckPermsPrefixes() { ensure(); return instance.luckPerms.showPrefixes; }
     public static boolean enableLuckPermsSuffixes() { ensure(); return instance.luckPerms.showSuffixes; }
     public static boolean enableTabSorting() { ensure(); return instance.luckPerms.sortTabByWeight; }
@@ -55,6 +84,7 @@ public class VChatTabConfig {
         Path file = dir.resolve("vchat-config.json5");
         if (Files.exists(file)) {
             instance = read(file);
+            IgnoreManager.configure(dir);
             return;
         }
 
@@ -66,6 +96,7 @@ public class VChatTabConfig {
         }
         normalize();
         writeTemplate(file, instance);
+        IgnoreManager.configure(dir);
     }
 
     private static VChatTabConfig read(Path file) {
@@ -171,6 +202,10 @@ public class VChatTabConfig {
                     "notifyWhenNoOneHeard": %s,
                     // Текст этого уведомления.
                     "noOneHeardMessage": %s,
+                    // Сообщение, если игрок пишет в выключенный глобальный чат.
+                    "globalDisabledMessage": %s,
+                    // Сообщение, если выключен локальный чат.
+                    "localDisabledMessage": %s,
 
                     // Оформление, которое игроки могут писать внутри своих сообщений.
                     // Операторы с уровнем 2 всегда имеют все разрешения.
@@ -189,6 +224,58 @@ public class VChatTabConfig {
                       // Эффект &k лучше оставить только администрации.
                       // false требует permission: vchat.format.obfuscated
                       "obfuscatedForEveryone": %s
+                    },
+
+                    // Защита от спама. Permission обхода: vchat.antispam.bypass
+                    "antiSpam": {
+                      "enabled": %s,
+                      // Максимальная длина сообщения в символах Unicode.
+                      "maxMessageLength": %d,
+                      // Минимальная задержка между сообщениями в миллисекундах.
+                      "cooldownMillis": %d,
+                      // Запрещать повтор одного и того же сообщения.
+                      "blockRepeatedMessages": %s,
+                      // В течение скольких секунд сообщение считается повтором.
+                      "repeatWindowSeconds": %d,
+                      // В сообщениях доступны <max> и <seconds>.
+                      "tooLongMessage": %s,
+                      "tooFastMessage": %s,
+                      "repeatedMessage": %s
+                    },
+
+                    // Упоминания игроков через @Ник.
+                    "mentions": {
+                      "enabled": %s,
+                      // <name> заменяется точным ником упомянутого игрока.
+                      "highlightFormat": %s,
+                      "playSound": %s,
+                      // Идентификатор звука Minecraft.
+                      "sound": %s,
+                      "volume": %s,
+                      "pitch": %s
+                    },
+
+                    // Постоянный персональный список игнорирования: /ignore <игрок>.
+                    "ignore": {
+                      "enabled": %s,
+                      // В сообщениях доступен <name>.
+                      "addedMessage": %s,
+                      "removedMessage": %s,
+                      "disabledMessage": %s,
+                      "cannotIgnoreSelfMessage": %s,
+                      // В сообщении доступен <count>.
+                      "usageMessage": %s,
+                      "clearedMessage": %s
+                    },
+
+                    // Безопасное серверное логирование.
+                    "logging": {
+                      "logChatMessages": %s,
+                      "logCommands": %s,
+                      // false записывает только название команды без аргументов.
+                      "includeCommandArguments": %s,
+                      // Аргументы этих команд скрываются всегда.
+                      "redactedCommands": %s
                     }
                   },
 
@@ -211,11 +298,29 @@ public class VChatTabConfig {
                 config.chat.enableGlobal, config.chat.enableLocal, json(config.chat.globalCommand),
                 json(config.chat.globalFormat), json(config.chat.localFormat),
                 config.chat.notifyWhenNoOneHeard, json(config.chat.noOneHeardMessage),
+                json(config.chat.globalDisabledMessage), json(config.chat.localDisabledMessage),
                 config.chat.playerFormatting.enabled,
                 config.chat.playerFormatting.colorsForEveryone,
                 config.chat.playerFormatting.hexForEveryone,
                 config.chat.playerFormatting.stylesForEveryone,
                 config.chat.playerFormatting.obfuscatedForEveryone,
+                config.chat.antiSpam.enabled, Math.max(1, config.chat.antiSpam.maxMessageLength),
+                Math.max(0, config.chat.antiSpam.cooldownMillis),
+                config.chat.antiSpam.blockRepeatedMessages,
+                Math.max(0, config.chat.antiSpam.repeatWindowSeconds),
+                json(config.chat.antiSpam.tooLongMessage), json(config.chat.antiSpam.tooFastMessage),
+                json(config.chat.antiSpam.repeatedMessage),
+                config.chat.mentions.enabled, json(config.chat.mentions.highlightFormat),
+                config.chat.mentions.playSound, json(config.chat.mentions.sound),
+                config.chat.mentions.volume, config.chat.mentions.pitch,
+                config.chat.ignore.enabled, json(config.chat.ignore.addedMessage),
+                json(config.chat.ignore.removedMessage), json(config.chat.ignore.disabledMessage),
+                json(config.chat.ignore.cannotIgnoreSelfMessage),
+                json(config.chat.ignore.usageMessage),
+                json(config.chat.ignore.clearedMessage),
+                config.chat.logging.logChatMessages, config.chat.logging.logCommands,
+                config.chat.logging.includeCommandArguments,
+                GSON.toJson(config.chat.logging.redactedCommands),
                 config.luckPerms.showPrefixes, config.luckPerms.showSuffixes,
                 config.luckPerms.sortTabByWeight,
                 config.luckPerms.higherWeightFirst);
@@ -245,6 +350,14 @@ public class VChatTabConfig {
         if (instance.chat.playerFormatting == null) {
             instance.chat.playerFormatting = new PlayerFormattingSettings();
         }
+        if (instance.chat.antiSpam == null) instance.chat.antiSpam = new AntiSpamSettings();
+        if (instance.chat.mentions == null) instance.chat.mentions = new MentionSettings();
+        if (instance.chat.ignore == null) instance.chat.ignore = new IgnoreSettings();
+        if (instance.chat.logging == null) instance.chat.logging = new LoggingSettings();
+        if (instance.chat.logging.redactedCommands == null) {
+            instance.chat.logging.redactedCommands = new ArrayList<>(new LoggingSettings().redactedCommands);
+        }
+        instance.chat.logging.redactedCommands.removeIf(command -> command == null || command.isBlank());
 
         TabSettings defaultTab = new TabSettings();
         if (instance.tab.header == null) instance.tab.header = defaultTab.header;
@@ -262,6 +375,51 @@ public class VChatTabConfig {
         if (instance.chat.localFormat == null) instance.chat.localFormat = defaultChat.localFormat;
         if (instance.chat.noOneHeardMessage == null) {
             instance.chat.noOneHeardMessage = defaultChat.noOneHeardMessage;
+        }
+        if (instance.chat.globalDisabledMessage == null) {
+            instance.chat.globalDisabledMessage = defaultChat.globalDisabledMessage;
+        }
+        if (instance.chat.localDisabledMessage == null) {
+            instance.chat.localDisabledMessage = defaultChat.localDisabledMessage;
+        }
+
+        AntiSpamSettings defaultAntiSpam = new AntiSpamSettings();
+        if (instance.chat.antiSpam.tooLongMessage == null) {
+            instance.chat.antiSpam.tooLongMessage = defaultAntiSpam.tooLongMessage;
+        }
+        if (instance.chat.antiSpam.tooFastMessage == null) {
+            instance.chat.antiSpam.tooFastMessage = defaultAntiSpam.tooFastMessage;
+        }
+        if (instance.chat.antiSpam.repeatedMessage == null) {
+            instance.chat.antiSpam.repeatedMessage = defaultAntiSpam.repeatedMessage;
+        }
+
+        MentionSettings defaultMentions = new MentionSettings();
+        if (instance.chat.mentions.highlightFormat == null) {
+            instance.chat.mentions.highlightFormat = defaultMentions.highlightFormat;
+        }
+        if (instance.chat.mentions.sound == null || instance.chat.mentions.sound.isBlank()) {
+            instance.chat.mentions.sound = defaultMentions.sound;
+        }
+
+        IgnoreSettings defaultIgnore = new IgnoreSettings();
+        if (instance.chat.ignore.addedMessage == null) {
+            instance.chat.ignore.addedMessage = defaultIgnore.addedMessage;
+        }
+        if (instance.chat.ignore.removedMessage == null) {
+            instance.chat.ignore.removedMessage = defaultIgnore.removedMessage;
+        }
+        if (instance.chat.ignore.disabledMessage == null) {
+            instance.chat.ignore.disabledMessage = defaultIgnore.disabledMessage;
+        }
+        if (instance.chat.ignore.cannotIgnoreSelfMessage == null) {
+            instance.chat.ignore.cannotIgnoreSelfMessage = defaultIgnore.cannotIgnoreSelfMessage;
+        }
+        if (instance.chat.ignore.usageMessage == null) {
+            instance.chat.ignore.usageMessage = defaultIgnore.usageMessage;
+        }
+        if (instance.chat.ignore.clearedMessage == null) {
+            instance.chat.ignore.clearedMessage = defaultIgnore.clearedMessage;
         }
     }
 
@@ -291,7 +449,13 @@ public class VChatTabConfig {
         public String localFormat = "&7[L] <prefix>&f<name><suffix>&7: &f<message>";
         public boolean notifyWhenNoOneHeard = true;
         public String noOneHeardMessage = "&7Вас никто не услышал";
+        public String globalDisabledMessage = "&cГлобальный чат сейчас отключён";
+        public String localDisabledMessage = "&cЛокальный чат сейчас отключён";
         public PlayerFormattingSettings playerFormatting = new PlayerFormattingSettings();
+        public AntiSpamSettings antiSpam = new AntiSpamSettings();
+        public MentionSettings mentions = new MentionSettings();
+        public IgnoreSettings ignore = new IgnoreSettings();
+        public LoggingSettings logging = new LoggingSettings();
     }
 
     public static final class PlayerFormattingSettings {
@@ -300,6 +464,45 @@ public class VChatTabConfig {
         public boolean hexForEveryone = false;
         public boolean stylesForEveryone = false;
         public boolean obfuscatedForEveryone = false;
+    }
+
+    public static final class AntiSpamSettings {
+        public boolean enabled = true;
+        public int maxMessageLength = 256;
+        public int cooldownMillis = 1000;
+        public boolean blockRepeatedMessages = true;
+        public int repeatWindowSeconds = 15;
+        public String tooLongMessage = "&cСообщение слишком длинное. Максимум: <max> символов";
+        public String tooFastMessage = "&cНе так быстро. Подождите ещё <seconds> сек.";
+        public String repeatedMessage = "&cНе повторяйте одно и то же сообщение";
+    }
+
+    public static final class MentionSettings {
+        public boolean enabled = true;
+        public String highlightFormat = "&e&l@<name>&r&f";
+        public boolean playSound = true;
+        public String sound = "minecraft:entity.experience_orb.pickup";
+        public float volume = 0.8F;
+        public float pitch = 1.2F;
+    }
+
+    public static final class IgnoreSettings {
+        public boolean enabled = true;
+        public String addedMessage = "&7Вы больше не видите сообщения игрока &f<name>";
+        public String removedMessage = "&7Вы снова видите сообщения игрока &f<name>";
+        public String disabledMessage = "&cСистема игнорирования отключена";
+        public String cannotIgnoreSelfMessage = "&cНельзя игнорировать самого себя";
+        public String usageMessage = "&7Использование: &f/ignore <игрок>&7 или &f/ignore clear&7. В списке: &f<count>";
+        public String clearedMessage = "&7Список игнорирования очищен. Удалено игроков: &f<count>";
+    }
+
+    public static final class LoggingSettings {
+        public boolean logChatMessages = true;
+        public boolean logCommands = true;
+        public boolean includeCommandArguments = false;
+        public List<String> redactedCommands = new ArrayList<>(List.of(
+                "login", "l", "register", "reg", "changepassword", "cp", "password", "2fa"
+        ));
     }
 
     public static final class LuckPermsSettings {

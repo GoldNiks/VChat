@@ -17,8 +17,7 @@ public final class MessageFormatter {
 
     public static Component chat(String pattern, ServerPlayer player, String message, String channel) {
         LuckPermsBridge.PlayerData data = LuckPermsBridge.read(player);
-        String safeMessage = ChatFormattingPolicy.filter(player, message);
-        return format(pattern, player, data, safeMessage, channel);
+        return format(pattern, player, data, message, channel);
     }
 
     public static Component player(String pattern, ServerPlayer player, LuckPermsBridge.PlayerData data) {
