@@ -1,6 +1,5 @@
 package com.vchat;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundTabListPacket;
 import net.minecraft.server.level.ServerPlayer;
@@ -89,13 +88,11 @@ public class TabListHandler {
             return;
         }
 
-        String prefix = showPrefix ? luckPerms.prefix() : "";
-        String suffix = showSuffix ? luckPerms.suffix() : "";
         int order = sortPlayers ? resolveTabOrder(luckPerms) : MAX_TAB_ORDER;
 
         Scoreboard board = player.getScoreboard();
         String teamName = buildTeamName(board, player, order);
-        PlayerTabState desired = new PlayerTabState(teamName, prefix, suffix);
+        PlayerTabState desired = new PlayerTabState(teamName);
         PlayerTabState current = PLAYER_STATES.get(player.getUUID());
 
         PlayerTeam existing = board.getPlayerTeam(teamName);
@@ -113,10 +110,10 @@ public class TabListHandler {
             team = board.addPlayerTeam(teamName);
         }
 
-        team.setPlayerPrefix(HexUtil.fromLegacy(prefix));
-        team.setPlayerSuffix(HexUtil.fromLegacy(suffix));
-        // Sorting teams must never make an unformatted/fallback player name black.
-        team.setColor(ChatFormatting.WHITE);
+        // The team controls sorting only. The visible prefix, suffix and their
+        // LuckPerms colors are supplied by TabListNameFormat above.
+        team.setPlayerPrefix(Component.empty());
+        team.setPlayerSuffix(Component.empty());
         board.addPlayerToTeam(player.getScoreboardName(), team);
         PLAYER_STATES.put(player.getUUID(), desired);
         player.refreshTabListName();
@@ -188,6 +185,6 @@ public class TabListHandler {
         player.connection.send(new ClientboundTabListPacket(HexUtil.fromLegacy(h), HexUtil.fromLegacy(f)));
     }
 
-    private record PlayerTabState(String teamName, String prefix, String suffix) {
+    private record PlayerTabState(String teamName) {
     }
 }
