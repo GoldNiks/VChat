@@ -21,12 +21,25 @@ public class TabListHandler {
     private static final Map<UUID, String> TAB_DISPLAY_STATES = new HashMap<>();
     private int tick = 0;
 
-    @SubscribeEvent
+@SubscribeEvent
     public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             refreshPlayerTeam(player, true);
             sendTabList(player);
-            player.sendSystemMessage(HexUtil.fromLegacy(VChatTabConfig.joinMessage()));
+            if (FirstJoinManager.isFirstJoin(player.getUUID())) {
+                FirstJoinManager.markJoined(player.getUUID());
+                broadcastFirstJoin(player);
+            } else {
+                player.sendSystemMessage(HexUtil.fromLegacy(VChatTabConfig.joinMessage()));
+            }
+        }
+    }
+
+    private static void broadcastFirstJoin(ServerPlayer joiner) {
+        Component message = HexUtil.fromLegacy(VChatTabConfig.firstJoinMessage()
+                .replace("<name>", joiner.getDisplayName().getString()));
+        for (ServerPlayer online : joiner.getServer().getPlayerList().getPlayers()) {
+            online.sendSystemMessage(message);
         }
     }
 

@@ -18,12 +18,12 @@ class VChatTabConfigTest {
 
         Path config = directory.resolve("vchat-config.json5");
         String generated = Files.readString(config);
-        assertTrue(generated.contains("\"configVersion\": 8"));
+        assertTrue(generated.contains("\"configVersion\": 9"));
         assertTrue(generated.contains("\"saveIntervalMillis\": 1000"));
         assertTrue(Files.exists(directory.resolve("vchat-config.json5.last-good")));
 
         String versionSeven = generated
-                .replace("\"configVersion\": 8", "\"configVersion\": 7")
+                .replace("\"configVersion\": 9", "\"configVersion\": 7")
                 .replace("\"cooldownMillis\": 500", "\"cooldownMillis\": 1000");
         Files.writeString(config, versionSeven);
         assertTrue(VChatTabConfig.reload(directory));

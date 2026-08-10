@@ -16,7 +16,7 @@ import java.util.List;
 
 public class VChatTabConfig {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("VChat");
-    private static final int CURRENT_CONFIG_VERSION = 8;
+    private static final int CURRENT_CONFIG_VERSION = 9;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
     public TabSettings tab = new TabSettings();
@@ -32,6 +32,7 @@ public class VChatTabConfig {
     public static String header() { ensure(); return instance.tab.header; }
     public static String footer() { ensure(); return instance.tab.footer; }
     public static String joinMessage() { ensure(); return instance.tab.joinMessage; }
+    public static String firstJoinMessage() { ensure(); return instance.tab.firstJoinMessage; }
     public static String tabPlayerFormat() { ensure(); return instance.tab.playerFormat; }
     public static int tabUpdateIntervalTicks() { ensure(); return Math.max(1, instance.tab.updateIntervalTicks); }
     public static int localChatRadius() { ensure(); return Math.max(0, instance.chat.localRadius); }
@@ -103,6 +104,7 @@ public class VChatTabConfig {
                 instance = new VChatTabConfig();
                 normalize();
                 IgnoreManager.configure(configDir);
+                FirstJoinManager.configure(configDir);
             }
         }
     }
@@ -135,6 +137,7 @@ public class VChatTabConfig {
             instance = loaded;
             if (!recoveredFromBackup) backupConfig(file);
             IgnoreManager.configure(dir);
+            FirstJoinManager.configure(dir);
             return !recoveredFromBackup;
         }
 
@@ -148,6 +151,7 @@ public class VChatTabConfig {
         if (!writeTemplate(file, instance)) return false;
         backupConfig(file);
         IgnoreManager.configure(dir);
+        FirstJoinManager.configure(dir);
         return true;
     }
 
@@ -262,6 +266,10 @@ public class VChatTabConfig {
                     "footer": %s,
                     // Личное сообщение игроку после входа на сервер.
                     "joinMessage": %s,
+                    // Сообщение всем игрокам при самом первом входе нового игрока на сервер.
+                    // Доступен placeholder <name>. UUID всех уже заходивших игроков
+                    // хранятся в config/vchat-firstjoin.json.
+                    "firstJoinMessage": %s,
                     // Формат строки игрока в TAB.
                     // Доступны: <prefix>, <suffix>, <name>, <display_name>, <group>, <world>.
                     "playerFormat": %s,
@@ -415,7 +423,8 @@ public class VChatTabConfig {
                 }
                 """.formatted(
                 CURRENT_CONFIG_VERSION, json(config.tab.header), json(config.tab.footer),
-                json(config.tab.joinMessage), json(config.tab.playerFormat),
+                json(config.tab.joinMessage), json(config.tab.firstJoinMessage),
+                json(config.tab.playerFormat),
                 Math.max(1, config.tab.updateIntervalTicks), config.chat.localRadius,
                 config.chat.enableGlobal, config.chat.enableLocal, json(config.chat.globalCommand),
                 json(config.chat.globalFormat), json(config.chat.localFormat),
@@ -507,6 +516,7 @@ public class VChatTabConfig {
         if (instance.tab.header == null) instance.tab.header = defaultTab.header;
         if (instance.tab.footer == null) instance.tab.footer = defaultTab.footer;
         if (instance.tab.joinMessage == null) instance.tab.joinMessage = defaultTab.joinMessage;
+        if (instance.tab.firstJoinMessage == null) instance.tab.firstJoinMessage = defaultTab.firstJoinMessage;
         if (instance.tab.playerFormat == null || instance.tab.playerFormat.isBlank()) {
             instance.tab.playerFormat = defaultTab.playerFormat;
         }
@@ -619,6 +629,7 @@ public class VChatTabConfig {
         public String header = "\n&6&lValorCraft\n&7Игроки: &f%online%&8/&7%max%\n";
         public String footer = "\n&8valorcraft.ru\n";
         public String joinMessage = "Добро пожаловать на ValorCraft!";
+        public String firstJoinMessage = "Игрок &f<name> &7присоединился к серверу впервые. Приветствуем!";
         public String playerFormat = "<prefix>&f<name><suffix>&r";
         public int updateIntervalTicks = 20;
     }

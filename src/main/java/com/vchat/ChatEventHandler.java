@@ -49,12 +49,16 @@ public class ChatEventHandler {
 
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase == TickEvent.Phase.END) IgnoreManager.flushIfDue();
+        if (event.phase == TickEvent.Phase.END) {
+            IgnoreManager.flushIfDue();
+            FirstJoinManager.flushIfDue();
+        }
     }
 
     @SubscribeEvent
     public void onServerStopping(ServerStoppingEvent event) {
         IgnoreManager.flushNow();
+        FirstJoinManager.flushNow();
     }
 
     @SubscribeEvent
