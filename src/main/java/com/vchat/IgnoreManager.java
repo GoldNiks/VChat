@@ -21,7 +21,7 @@ public final class IgnoreManager {
     private static final Type DATA_TYPE = new TypeToken<Map<String, Set<String>>>() { }.getType();
     private static Map<String, Set<String>> ignoredPlayers = new HashMap<>();
     private static final Map<UUID, Long> LAST_MUTATIONS = new HashMap<>();
-    private static Path dataFile = Path.of("config", "vchat-ignore.json");
+    private static Path dataFile = Path.of("VMods", "VChat", "vchat-ignore.json");
     private static boolean dirty;
     private static long dirtySinceNanos;
 

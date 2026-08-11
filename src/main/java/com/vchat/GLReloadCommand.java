@@ -14,7 +14,7 @@ public class GLReloadCommand {
                 .requires(src -> src.hasPermission(2))
                 .then(Commands.literal("reload")
                         .executes(ctx -> {
-                            var dir = ctx.getSource().getServer().getServerDirectory().toPath().resolve("config");
+                            var dir = VChatPaths.prepareConfigDirectory();
                             boolean reloaded = VChatTabConfig.reload(dir);
                             if (!reloaded) {
                                 ctx.getSource().sendFailure(Component.literal(
@@ -42,6 +42,8 @@ public class GLReloadCommand {
                 .then(Commands.literal("status")
                         .executes(ctx -> {
                             ctx.getSource().sendSuccess(() -> Component.literal("§7Header: §f" + VChatTabConfig.header()), false);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§7Config directory: §f"
+                                    + VChatPaths.configDirectory().toAbsolutePath()), false);
                             ctx.getSource().sendSuccess(() -> Component.literal("§7Footer: §f" + VChatTabConfig.footer()), false);
                             ctx.getSource().sendSuccess(() -> Component.literal("§7LuckPerms prefixes: §f"
                                     + VChatTabConfig.enableLuckPermsPrefixes()), false);

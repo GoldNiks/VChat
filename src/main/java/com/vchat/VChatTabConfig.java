@@ -30,7 +30,7 @@ public class VChatTabConfig {
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
     private static VChatTabConfig instance;
-    private static Path configDir = Path.of("config");
+    private static Path configDir = Path.of("VMods", "VChat");
 
     public static String header() { ensure(); return instance.tab.header; }
     public static String footer() { ensure(); return instance.tab.footer; }
@@ -829,6 +829,11 @@ public class VChatTabConfig {
      */
     private static void migrateMcChatLinkToml() {
         Path toml = configDir.resolve("mcchatlink-server.toml");
+        if (!Files.exists(toml) && VChatPaths.isManagedDirectory(configDir)) {
+            // Read the other mod's old config in place; never copy it into or
+            // modify VMods/VChat.
+            toml = VChatPaths.legacyForgeConfigDirectory().resolve("mcchatlink-server.toml");
+        }
         if (!Files.exists(toml)) return;
 
         String section = "";
