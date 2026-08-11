@@ -198,11 +198,13 @@ public class TabListHandler {
                 .replace("%online%", String.valueOf(online))
                 .replace("%max%", String.valueOf(max))
                 .replace("%player%", playerName)
+                .replace("%balance%", VEconomyBridge.balanceText(player))
                 .replace("%tps%", TpsUtil.format(player.getServer().getAverageTickTime()));
         String f = VChatTabConfig.footer()
                 .replace("%online%", String.valueOf(online))
                 .replace("%max%", String.valueOf(max))
                 .replace("%player%", playerName)
+                .replace("%balance%", VEconomyBridge.balanceText(player))
                 .replace("%tps%", TpsUtil.format(player.getServer().getAverageTickTime()));
 
         player.connection.send(new ClientboundTabListPacket(HexUtil.fromLegacy(h), HexUtil.fromLegacy(f)));
