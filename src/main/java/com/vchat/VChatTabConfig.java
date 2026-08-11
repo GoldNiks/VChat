@@ -16,7 +16,7 @@ import java.util.List;
 
 public class VChatTabConfig {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("VChat");
-    private static final int CURRENT_CONFIG_VERSION = 13;
+    private static final int CURRENT_CONFIG_VERSION = 14;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
     public TabSettings tab = new TabSettings();
@@ -99,7 +99,9 @@ public class VChatTabConfig {
     public static boolean stagesAppendToSuffix() { ensure(); return instance.stages.appendToSuffix; }
     public static String stageDetectionMode() { ensure(); return instance.stages.detectionMode; }
     public static String stageSeparator() { ensure(); return instance.stages.separator; }
+    public static List<StageQuest> stageQuests() { ensure(); return List.copyOf(instance.stages.quests); }
     public static List<StageChapter> stageChapters() { ensure(); return List.copyOf(instance.stages.chapters); }
+    public static String stageSource() { ensure(); return instance.stages.quests.isEmpty() ? "chapters" : "quests"; }
     public static boolean discordEnabled() { ensure(); return instance.discord.enabled; }
     public static boolean discordRelayChatToDiscord() { ensure(); return instance.discord.enabled && instance.discord.relayChatToDiscord; }
     public static boolean discordRelayServerStatus() { ensure(); return instance.discord.enabled && instance.discord.relayServerStatus; }
@@ -554,6 +556,14 @@ public class VChatTabConfig {
                   "appendToSuffix": %s,
                   // Разделитель между суффиксом LuckPerms и тегом этапа.
                   "separator": %s,
+                  // Рекомендуемый точный способ: суффикс выдаётся после выполнения конкретного квеста.
+                  // ID берётся из строки id: "..." самого квеста в файле главы .snbt.
+                  // Не путайте его с первым id файла — это ID главы. Пример элемента:
+                  // { "questId": "ВАШ_ID_ИЗ_SNBT", "tag": "&7Stone Age" }
+                  // Порядок: от раннего этапа к позднему; побеждает последний выполненный квест.
+                  // Когда список quests заполнен, старый список chapters ниже не используется.
+                  "quests": %s,
+                  // Резервный старый способ определения по целой главе FTB Quests.
                   // Список глав сверху вниз: от ранних к поздним. Игроку показывается
                   // последняя подходящая глава согласно detectionMode.
                   // "chapter" - имя файла главы без расширения .snbt,
@@ -561,7 +571,8 @@ public class VChatTabConfig {
                   "chapters": %s
                 }
                 """.formatted(config.stages.enabled, json(config.stages.detectionMode), config.stages.appendToSuffix,
-                json(config.stages.separator), GSON.toJson(config.stages.chapters));
+                json(config.stages.separator), GSON.toJson(config.stages.quests),
+                GSON.toJson(config.stages.chapters));
     }
 
     private static String discordJson(VChatTabConfig config) {
@@ -661,6 +672,10 @@ public class VChatTabConfig {
         } else {
             instance.stages.detectionMode = instance.stages.detectionMode.toLowerCase(java.util.Locale.ROOT);
         }
+        if (instance.stages.quests == null) instance.stages.quests = new ArrayList<>();
+        instance.stages.quests.removeIf(entry -> entry == null
+                || entry.questId == null || entry.questId.isBlank()
+                || entry.tag == null || entry.tag.isBlank());
         if (instance.stages.chapters == null) instance.stages.chapters = new ArrayList<>();
         instance.stages.chapters.removeIf(entry -> entry == null
                 || entry.chapter == null || entry.chapter.isBlank()
@@ -805,6 +820,12 @@ public class VChatTabConfig {
                 || instance.chat.globalFormat.length() > 32767
                 || instance.chat.localFormat.length() > 32767) {
             throw new IllegalArgumentException("A VChat format string is too long");
+        }
+        for (StageQuest stage : instance.stages.quests) {
+            if (!stage.questId.matches("(?i)(?:0x)?[0-9a-f]{1,16}")) {
+                throw new IllegalArgumentException("stages.quests questId must be a hexadecimal FTB Quest ID: "
+                        + stage.questId);
+            }
         }
     }
 
@@ -1033,6 +1054,9 @@ public class VChatTabConfig {
         public boolean appendToSuffix = true;
         // Разделитель между суффиксом LuckPerms и тегом этапа.
         public String separator = " ";
+        // Точные квесты-триггеры. Если список не пуст, chapters не используется.
+        public List<StageQuest> quests = new ArrayList<>();
+        // Старый резервный способ: определение этапа по главе целиком.
         public List<StageChapter> chapters = new ArrayList<>(List.of(
                 new StageChapter("questsstoneage", "&7Stone Age"),
                 new StageChapter("questsmetallurgy", "&6Metallurgy"),
@@ -1046,6 +1070,21 @@ public class VChatTabConfig {
                 new StageChapter("zpm__zero_point_module", "&fZPM"),
                 new StageChapter("uv__ultimate_voltage", "&cUV")
         ));
+    }
+
+    public static final class StageQuest {
+        // 16-значный HEX ID конкретного квеста из файла главы FTB Quests.
+        public String questId;
+        // Суффикс после выполнения этого квеста. Поддерживает &-цвета и HEX.
+        public String tag;
+
+        public StageQuest() {
+        }
+
+        public StageQuest(String questId, String tag) {
+            this.questId = questId;
+            this.tag = tag;
+        }
     }
 
     public static final class StageChapter {

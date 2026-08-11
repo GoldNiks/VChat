@@ -24,8 +24,10 @@ public final class FTBQuestsStageBridge {
     private static Field instanceField;
     private static Method teamDataGet;
     private static Method getAllChapters;
+    private static Method getQuest;
     private static Method getFilename;
     private static Method isCompletedRaw;
+    private static Method isCompleted;
     private static Method isStarted;
     private static Object cachedFile;
     private static Map<String, Object> chaptersByFilename = Map.of();
@@ -46,6 +48,19 @@ public final class FTBQuestsStageBridge {
             Object file = questFile();
             Object teamData = teamData(file, player);
             if (file == null || teamData == null) return "";
+            List<VChatTabConfig.StageQuest> questStages = VChatTabConfig.stageQuests();
+            if (!questStages.isEmpty()) {
+                return selectQuestStageTag(questStages, questId -> {
+                    try {
+                        Object quest = quest(file, questId);
+                        return quest != null
+                                && Boolean.TRUE.equals(isCompleted.invoke(teamData, quest));
+                    } catch (ReflectiveOperationException | IllegalArgumentException error) {
+                        logFailure(error);
+                        return false;
+                    }
+                });
+            }
             List<VChatTabConfig.StageChapter> configured = VChatTabConfig.stageChapters();
             boolean startedMode = VChatTabConfig.stageDetectionMode().equals("started");
             String selected = selectStageTag(configured, chapterName -> {
@@ -85,6 +100,25 @@ public final class FTBQuestsStageBridge {
         return "";
     }
 
+    static String selectQuestStageTag(List<VChatTabConfig.StageQuest> quests,
+                                      java.util.function.Predicate<String> questCompleted) {
+        for (int i = quests.size() - 1; i >= 0; i--) {
+            VChatTabConfig.StageQuest stage = quests.get(i);
+            if (stage.questId != null && questCompleted.test(stage.questId)) {
+                return stage.tag;
+            }
+        }
+        return "";
+    }
+
+    static long parseQuestId(String questId) {
+        String normalized = questId.trim();
+        if (normalized.startsWith("0x") || normalized.startsWith("0X")) {
+            normalized = normalized.substring(2);
+        }
+        return Long.parseUnsignedLong(normalized, 16);
+    }
+
     private static Object questFile() throws ReflectiveOperationException {
         if (classMissing) return null;
         if (instanceField == null) {
@@ -116,6 +150,21 @@ public final class FTBQuestsStageBridge {
         return null;
     }
 
+    private static Object quest(Object file, String questId) throws ReflectiveOperationException {
+        if (file == null || questId == null || questId.isBlank()) return null;
+        ensureQuestMethods(file);
+        return getQuest.invoke(file, parseQuestId(questId));
+    }
+
+    private static void ensureQuestMethods(Object file) throws ReflectiveOperationException {
+        Class<?> questObjectClass = Class.forName(QUEST_OBJECT_CLASS);
+        Class<?> teamDataClass = Class.forName(TEAM_DATA_CLASS);
+        if (getQuest == null) getQuest = file.getClass().getMethod("getQuest", long.class);
+        if (isCompleted == null) {
+            isCompleted = teamDataClass.getMethod("isCompleted", questObjectClass);
+        }
+    }
+
     private static void ensureChapters(Object file) throws ReflectiveOperationException {
         if (cachedFile == file) return;
         if (getAllChapters == null) getAllChapters = file.getClass().getMethod("getAllChapters");
@@ -142,7 +191,7 @@ public final class FTBQuestsStageBridge {
         cachedFile = file;
     }
 
-    private static void logFailure(ReflectiveOperationException error) {
+    private static void logFailure(Exception error) {
         if (!reflectionFailureLogged) {
             reflectionFailureLogged = true;
             LOGGER.warn("FTB Quests stage integration failed; stage tags are temporarily unavailable", error);

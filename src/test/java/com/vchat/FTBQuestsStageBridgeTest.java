@@ -26,6 +26,10 @@ class FTBQuestsStageBridgeTest {
             chapter("uv__ultimate_voltage", "&cUV")
     );
 
+    private static VChatTabConfig.StageQuest quest(String id, String tag) {
+        return new VChatTabConfig.StageQuest(id, tag);
+    }
+
     @Test
     void mostAdvancedCompletedChapterWins() {
         assertEquals("&bMV", FTBQuestsStageBridge.selectStageTag(EARLY_TO_LATE,
@@ -58,5 +62,22 @@ class FTBQuestsStageBridgeTest {
     @Test
     void emptyListReturnsEmpty() {
         assertEquals("", FTBQuestsStageBridge.selectStageTag(List.of(), name -> true));
+    }
+
+    @Test
+    void mostAdvancedCompletedQuestWins() {
+        var stages = List.of(
+                quest("1111111111111111", "&7Stone Age"),
+                quest("AAAAAAAAAAAAAAAA", "&7Steam"),
+                quest("FFFFFFFFFFFFFFFF", "&aLV"));
+        assertEquals("&aLV", FTBQuestsStageBridge.selectQuestStageTag(stages,
+                id -> id.equals("1111111111111111") || id.equals("FFFFFFFFFFFFFFFF")));
+    }
+
+    @Test
+    void parsesUnsignedFtbQuestHexId() {
+        assertEquals(-1L, FTBQuestsStageBridge.parseQuestId("FFFFFFFFFFFFFFFF"));
+        assertEquals(0x6845144F7EA1081DL,
+                FTBQuestsStageBridge.parseQuestId("0x6845144F7EA1081D"));
     }
 }
