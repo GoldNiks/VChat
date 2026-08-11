@@ -2,6 +2,7 @@ package com.vchat;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -11,6 +12,41 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VChatTabConfigTest {
     @Test
+    void migratesDiscordSettingsFromMcChatLinkToml() throws Exception {
+        Path directory = Files.createTempDirectory("vchat-mcchatlink-test-");
+        Path toml = directory.resolve("mcchatlink-server.toml");
+        Files.writeString(toml, """
+                [discord]
+                \tchatWebhookUrl = "https://discord.com/api/webhooks/abc"
+                \tstatusWebhookUrl = "https://discord.com/api/webhooks/def"
+                \tserverName = "ValorCraft (TFG)"
+                \trelayServerStatus = true
+                \twebhookUsername = "ValorCraft"
+                \twebhookAvatarUrl = "https://example.com/avatar.png"
+                \trelayChatToDiscord = true
+                \tgameToDiscordFormat = "**{player}**: {message}"
+
+                [bot]
+                \tbotEnabled = true
+                \tbotToken = "test-token"
+                \tbotChannelId = 1510057193376976906
+                \trelayDiscordToGame = true
+                \tdiscordToGameFormat = "&8[Discord] &7{username}&8: &f{message}"
+                """, StandardCharsets.UTF_8);
+
+        assertTrue(VChatTabConfig.reload(directory));
+        assertEquals("https://discord.com/api/webhooks/abc", VChatTabConfig.discordChatWebhookUrl());
+        assertEquals("https://discord.com/api/webhooks/def", VChatTabConfig.discordStatusWebhookUrl());
+        assertEquals("ValorCraft (TFG)", VChatTabConfig.discordServerName());
+        assertEquals("test-token", VChatTabConfig.discordBotToken());
+        assertEquals(1510057193376976906L, VChatTabConfig.discordBotChannelId());
+        assertTrue(VChatTabConfig.discordRelayChatToDiscord());
+        assertTrue(VChatTabConfig.discordBotEnabled());
+        assertTrue(VChatTabConfig.discordRelayDiscordToGame());
+        assertEquals("&8[Discord] &7{username}&8: &f{message}", VChatTabConfig.discordToGameFormat());
+    }
+
+    @Test
     void rejectsBrokenReloadAndKeepsLastWorkingConfig() throws Exception {
         Path directory = Files.createTempDirectory("vchat-config-test-");
         assertTrue(VChatTabConfig.reload(directory));
@@ -18,12 +54,14 @@ class VChatTabConfigTest {
 
         Path config = directory.resolve("vchat-config.json5");
         String generated = Files.readString(config);
-        assertTrue(generated.contains("\"configVersion\": 9"));
+        assertTrue(generated.contains("\"configVersion\": 11"));
         assertTrue(generated.contains("\"saveIntervalMillis\": 1000"));
+        assertTrue(generated.contains("\"chapters\""));
+        assertTrue(generated.contains("\"discord\""));
         assertTrue(Files.exists(directory.resolve("vchat-config.json5.last-good")));
 
         String versionSeven = generated
-                .replace("\"configVersion\": 9", "\"configVersion\": 7")
+                .replace("\"configVersion\": 11", "\"configVersion\": 7")
                 .replace("\"cooldownMillis\": 500", "\"cooldownMillis\": 1000");
         Files.writeString(config, versionSeven);
         assertTrue(VChatTabConfig.reload(directory));

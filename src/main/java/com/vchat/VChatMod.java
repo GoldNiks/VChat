@@ -10,10 +10,11 @@ public class VChatMod {
 
     public VChatMod() {
         VChatTabConfig.initialize(FMLPaths.CONFIGDIR.get());
-        MinecraftForge.EVENT_BUS.register(new ChatEventHandler());
+MinecraftForge.EVENT_BUS.register(new ChatEventHandler());
         MinecraftForge.EVENT_BUS.register(new TabListHandler());
         MinecraftForge.EVENT_BUS.register(new DeathMessageHandler());
         MinecraftForge.EVENT_BUS.register(new GLReloadCommand());
         MinecraftForge.EVENT_BUS.register(new IgnoreCommand());
+        MinecraftForge.EVENT_BUS.register(new DiscordBridge());
     }
 }

@@ -16,8 +16,10 @@
 - Безопасное логирование команд без аргументов по умолчанию.
 - Диагностика LuckPerms и форматирования через `/vchat debug`.
 - Цветная информация FTB Teams при наведении курсора на ник в чате.
+- Текущий этап развития игрока (LV, MV, UV и т.п.) по завершённым главам FTB Quests в суффиксе TAB или чата.
 - Скрытие голов Chat Heads в ванильных сообщениях смерти без изменения их текста.
 - Сообщение всем игрокам при самом первом входе нового игрока на сервер (порог входа хранится в `config/vchat-firstjoin.json`).
+- Мост чата с Discord: webhook-и (глобальный чат, вход/выход, статус сервера) и бот (Discord → игра). Заменяет отдельный мод MC Chat Link.
 
 ## Команды
 
@@ -39,7 +41,7 @@
 
 ```json5
 {
-  "configVersion": 9,
+  "configVersion": 11,
 
   "tab": {
     "header": "...",
@@ -134,17 +136,61 @@
   "deathMessages": {
     "enabled": true,
     "hidePlayerHeads": true
+  },
+
+  "stages": {
+    "enabled": true,
+    "appendToSuffix": true,
+    "separator": " ",
+    "chapters": [
+      { "chapter": "questsstoneage", "tag": "&7Stone Age" },
+      { "chapter": "questssteam_age", "tag": "&7Steam" },
+      { "chapter": "lv__low_voltage", "tag": "&aLV" },
+      { "chapter": "mv__medium_voltage", "tag": "&bMV" },
+      { "chapter": "hv__high_voltage", "tag": "&eHV" },
+      { "chapter": "ev__extreme_voltage", "tag": "&dEV" },
+      { "chapter": "iv__insane_voltage", "tag": "&5IV" },
+      { "chapter": "luv__ludicrous_voltage", "tag": "&dLuV" },
+      { "chapter": "zpm__zero_point_module", "tag": "&fZPM" },
+      { "chapter": "uv__ultimate_voltage", "tag": "&cUV" }
+    ]
+  },
+
+  "discord": {
+    "enabled": true,
+    "relayChatToDiscord": true,
+    "chatWebhookUrl": "https://discord.com/api/webhooks/...",
+    "statusWebhookUrl": "https://discord.com/api/webhooks/...",
+    "relayServerStatus": true,
+    "serverName": "ValorCraft",
+    "webhookUsername": "ValorCraft",
+    "webhookAvatarUrl": "",
+    "gameToDiscordFormat": "**{player}**: {message}",
+    "joinFormat": "**{player}** вошёл на сервер",
+    "leaveFormat": "**{player}** вышел с сервера",
+    "serverStartedFormat": "🟢 Сервер запущен | {server}",
+    "serverStoppedFormat": "🔴 Сервер остановлен | {server}",
+
+    "botEnabled": false,
+    "botToken": "",
+    "botChannelId": 0,
+    "relayDiscordToGame": true,
+    "discordToGameFormat": "&8[Discord] &7{username}&8: &f{message}"
   }
 }
 ```
 
 После изменения выполните `/vchat reload`. Изменение `globalCommand` требует полного перезапуска, потому что команда регистрируется при запуске сервера.
 
-Конфиги старых версий автоматически обновляются до `configVersion: 9` с сохранением настроек. Старый стандартный cooldown `1000` мс при миграции уменьшается до `500` мс. Старый `vchat-tab.json` остаётся резервной копией. Последняя проверенная конфигурация хранится в `vchat-config.json5.last-good`: при синтаксической ошибке `/vchat reload` отклонит новый файл и продолжит использовать рабочие настройки, а после перезапуска сможет восстановиться из этой копии.
+Конфиги старых версий автоматически обновляются до `configVersion: 11` с сохранением настроек. Старый стандартный cooldown `1000` мс при миграции уменьшается до `500` мс. Старый `vchat-tab.json` остаётся резервной копией. Последняя проверенная конфигурация хранится в `vchat-config.json5.last-good`: при синтаксической ошибке `/vchat reload` отклонит новый файл и продолжит использовать рабочие настройки, а после перезапуска сможет восстановиться из этой копии.
 
 ## FTB Teams hover
 
 Если FTB Teams установлен, при наведении на `<name>` или `<display_name>` в сообщении показываются цветное название команды, роль игрока и количество участников. Личные одиночные команды FTB Teams скрываются при `hideHoverWithoutTeam: true`. Интеграция необязательная: без FTB Teams VChat продолжает работать без подсказки.
+
+## FTB Quests: этап развития игрока
+
+Если FTB Quests установлен и `stages.enabled: true`, VChat определяет текущий этап игрока по главам квестов: показывается последняя глава из списка `stages.chapters`, все обязательные квесты которой игрок полностью выполнил. При `appendToSuffix: true` тег этапа автоматически дописывается в конец `<suffix>` в TAB и чате. Иначе этап можно вывести вручную через `<stage>`. Интеграция необязательная: без FTB Quests VChat работает как раньше.
 
 ## Сообщения о смерти и Chat Heads
 
@@ -164,8 +210,19 @@
 | `<world>` | Текущее измерение |
 | `<channel>` | `global`, `local` или `tab` |
 | `<message>` | Текст сообщения |
+| `<stage>` | Текущий этап развития игрока по главам FTB Quests (тег из `stages.chapters`) |
+| `<balance>` | Баланс игрока из VEconomy (пусто, если мод не установлен) |
+| `<tps>` | Текущий TPS сервера |
 
-В header/footer: `%online%`, `%max%`, `%player%`. В `firstJoinMessage` доступен `<name>`.
+В header/footer: `%online%`, `%max%`, `%player%`, `%tps%`. В `firstJoinMessage` доступен `<name>`.
+
+## VEconomy: баланс игрока
+
+Если VEconomy установлен, `<balance>` в `playerFormat` и форматах чата показывает баланс игрока в том же виде, что и команда VEconomy (символ валюты, разделители, склонение). Интеграция необязательная и работает через публичный API VEconomy: без мода плейсхолдер заменяется пустой строкой.
+
+## TPS
+
+`%tps%` в header/footer и `<tps>` в `playerFormat`/форматах чата показывают текущий TPS сервера (в среднем за 200 тиков, округление до десятых). При полной нагрузке — `20.0`, при лагах значение уменьшается.
 
 ## Цвета и permissions
 

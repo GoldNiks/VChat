@@ -13,10 +13,14 @@ public final class MessageFormatter {
     private static final String NAME_MARKER = "\uE000vchat_name\uE001";
     private static final String DISPLAY_NAME_MARKER = "\uE000vchat_display_name\uE001";
     private static final Pattern PLACEHOLDER = Pattern.compile(
-            "<(prefix|suffix|name|display_name|message|group|world|channel)>"
+            "<(prefix|suffix|name|display_name|message|group|world|channel|stage|balance|tps)>"
     );
 
     private MessageFormatter() {
+    }
+
+    private static boolean patternContainsStage(String pattern) {
+        return pattern != null && pattern.contains("<stage>");
     }
 
     public static Component chat(String pattern, ServerPlayer player, String message, String channel) {
@@ -31,15 +35,30 @@ public final class MessageFormatter {
     private static Component format(String pattern, ServerPlayer player, LuckPermsBridge.PlayerData data,
                                     String message, String channel, boolean enableNameHover) {
         Component hover = enableNameHover ? FTBTeamsBridge.createNameHover(player) : null;
-        Map<String, String> values = Map.of(
-                "prefix", VChatTabConfig.enableLuckPermsPrefixes() ? data.prefix() : "",
-                "suffix", VChatTabConfig.enableLuckPermsSuffixes() ? data.suffix() : "",
-                "name", player.getScoreboardName(),
-                "display_name", player.getDisplayName().getString(),
-                "message", message == null ? "" : message,
-                "group", data.primaryGroup(),
-                "world", player.serverLevel().dimension().location().toString(),
-                "channel", channel == null ? "" : channel
+        String stage = VChatTabConfig.stagesEnabled()
+                && (VChatTabConfig.stagesAppendToSuffix() || patternContainsStage(pattern))
+                ? FTBQuestsStageBridge.stageText(player) : "";
+        String suffix = VChatTabConfig.enableLuckPermsSuffixes() ? data.suffix() : "";
+        if (!stage.isEmpty() && VChatTabConfig.stagesAppendToSuffix()) {
+            String separator = VChatTabConfig.stageSeparator();
+            if (suffix.isEmpty() || suffix.endsWith(" ") || stage.startsWith(" ")) {
+                suffix = suffix + stage;
+            } else {
+                suffix = suffix + separator + stage;
+            }
+        }
+        Map<String, String> values = Map.ofEntries(
+                Map.entry("prefix", VChatTabConfig.enableLuckPermsPrefixes() ? data.prefix() : ""),
+                Map.entry("suffix", suffix),
+                Map.entry("name", player.getScoreboardName()),
+                Map.entry("display_name", player.getDisplayName().getString()),
+                Map.entry("message", message == null ? "" : message),
+                Map.entry("group", data.primaryGroup()),
+                Map.entry("world", player.serverLevel().dimension().location().toString()),
+                Map.entry("channel", channel == null ? "" : channel),
+                Map.entry("stage", stage),
+                Map.entry("balance", VEconomyBridge.balanceText(player)),
+                Map.entry("tps", TpsUtil.format(player.getServer().getAverageTickTime()))
         );
 
         Matcher matcher = PLACEHOLDER.matcher(pattern == null ? "" : pattern);

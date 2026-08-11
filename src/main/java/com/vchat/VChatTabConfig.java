@@ -16,7 +16,7 @@ import java.util.List;
 
 public class VChatTabConfig {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("VChat");
-    private static final int CURRENT_CONFIG_VERSION = 9;
+    private static final int CURRENT_CONFIG_VERSION = 11;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
     public TabSettings tab = new TabSettings();
@@ -24,6 +24,8 @@ public class VChatTabConfig {
     public LuckPermsSettings luckPerms = new LuckPermsSettings();
     public FTBTeamsSettings ftbTeams = new FTBTeamsSettings();
     public DeathMessageSettings deathMessages = new DeathMessageSettings();
+    public StagesSettings stages = new StagesSettings();
+    public DiscordSettings discord = new DiscordSettings();
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
     private static VChatTabConfig instance;
@@ -92,6 +94,28 @@ public class VChatTabConfig {
     public static String ftbTeamsRankLabel() { ensure(); return instance.ftbTeams.rankLabel; }
     public static String ftbTeamsMembersLabel() { ensure(); return instance.ftbTeams.membersLabel; }
     public static String ftbTeamsNoTeamText() { ensure(); return instance.ftbTeams.noTeamText; }
+    public static boolean stagesEnabled() { ensure(); return instance.stages.enabled; }
+    public static boolean stagesAppendToSuffix() { ensure(); return instance.stages.appendToSuffix; }
+    public static String stageSeparator() { ensure(); return instance.stages.separator; }
+    public static List<StageChapter> stageChapters() { ensure(); return List.copyOf(instance.stages.chapters); }
+    public static boolean discordEnabled() { ensure(); return instance.discord.enabled; }
+    public static boolean discordRelayChatToDiscord() { ensure(); return instance.discord.enabled && instance.discord.relayChatToDiscord; }
+    public static boolean discordRelayServerStatus() { ensure(); return instance.discord.enabled && instance.discord.relayServerStatus; }
+    public static boolean discordBotEnabled() { ensure(); return instance.discord.enabled && instance.discord.botEnabled; }
+    public static boolean discordRelayDiscordToGame() { ensure(); return instance.discord.enabled && instance.discord.relayDiscordToGame; }
+    public static String discordChatWebhookUrl() { ensure(); return instance.discord.chatWebhookUrl; }
+    public static String discordStatusWebhookUrl() { ensure(); return instance.discord.statusWebhookUrl; }
+    public static String discordServerName() { ensure(); return instance.discord.serverName; }
+    public static String discordWebhookUsername() { ensure(); return instance.discord.webhookUsername; }
+    public static String discordWebhookAvatarUrl() { ensure(); return instance.discord.webhookAvatarUrl; }
+    public static String discordGameToDiscordFormat() { ensure(); return instance.discord.gameToDiscordFormat; }
+    public static String discordJoinFormat() { ensure(); return instance.discord.joinFormat; }
+    public static String discordLeaveFormat() { ensure(); return instance.discord.leaveFormat; }
+    public static String discordServerStartedFormat() { ensure(); return instance.discord.serverStartedFormat; }
+    public static String discordServerStoppedFormat() { ensure(); return instance.discord.serverStoppedFormat; }
+    public static String discordBotToken() { ensure(); return instance.discord.botToken; }
+    public static long discordBotChannelId() { ensure(); return Math.max(0, instance.discord.botChannelId); }
+    public static String discordToGameFormat() { ensure(); return instance.discord.discordToGameFormat; }
     public static boolean hidePlayerHeadsInDeathMessages() {
         ensure();
         return instance.deathMessages.enabled && instance.deathMessages.hidePlayerHeads;
@@ -148,6 +172,7 @@ public class VChatTabConfig {
             instance = new VChatTabConfig();
         }
         normalize();
+        migrateMcChatLinkToml();
         if (!writeTemplate(file, instance)) return false;
         backupConfig(file);
         IgnoreManager.configure(dir);
@@ -175,6 +200,7 @@ public class VChatTabConfig {
                     instance.chat.antiSpam.cooldownMillis = 500;
                 }
                 upgradeOldDefaults(instance);
+                migrateMcChatLinkToml();
                 instance.configVersion = CURRENT_CONFIG_VERSION;
                 if (!writeTemplate(file, instance)) {
                     instance = previous;
@@ -258,7 +284,7 @@ public class VChatTabConfig {
                   "tab": {
                     // Текст сверху. Новая строка: \\n. Пустая строка: \\n\\n.
                     // Жёсткого лимита строк нет, но для небольших экранов рекомендуется 2-4 строки.
-                    // Доступны: %%online%%, %%max%%, %%player%%.
+                    // Доступны: %%online%%, %%max%%, %%player%%, %%tps%%.
                     // Цвета: &0-&f, стили: &l &m &n &o &r, HEX: &#RRGGBB.
                     "header": %s,
                     // Текст снизу. Переносы, цвета и подстановки работают так же.
@@ -271,7 +297,7 @@ public class VChatTabConfig {
                     // хранятся в config/vchat-firstjoin.json.
                     "firstJoinMessage": %s,
                     // Формат строки игрока в TAB.
-                    // Доступны: <prefix>, <suffix>, <name>, <display_name>, <group>, <world>.
+                    // Доступны: <prefix>, <suffix>, <name>, <display_name>, <group>, <world>, <stage>, <balance>, <tps>.
                     "playerFormat": %s,
                     // Как часто обновлять TAB и данные LuckPerms. 20 тиков = примерно 1 секунда.
                     "updateIntervalTicks": %d
@@ -419,6 +445,61 @@ public class VChatTabConfig {
                     // Убирает головы Chat Heads только у сообщений смерти.
                     // Текст, перевод, причина смерти и hover предмета сохраняются.
                     "hidePlayerHeads": %s
+                  },
+
+                  // Текущий этап развития игрока по главам квестов FTB Quests.
+                  // Этап определяется первой в списке главой, все обязательные
+                  // квесты которой игрок полностью выполнил.
+                  "stages": {
+                    // Главный переключатель показа этапа. Без FTB Quests на сервере
+                    // этап просто не определяется, мод работает как раньше.
+                    "enabled": %s,
+                    // true: тег этапа автоматически дописывается в конец <suffix>
+                    // в TAB и чате. false: этап можно вывести вручную через <stage>.
+                    "appendToSuffix": %s,
+                    // Разделитель между суффиксом LuckPerms и тегом этапа.
+                    "separator": %s,
+                    // Список глав сверху вниз: от ранних к поздним. Игроку
+                    // показывается последняя еже полностью пройдённая глава.
+                    // "chapter" - имя файла главы без расширения .snbt,
+                    // "tag" - вывод, поддерживает &-цвета и HEX.
+                    "chapters": %s
+                  },
+
+                  // Интеграция с Discord: webhook-и и бот для моста чата.
+                  // Заменяет отдельный мод MC Chat Link.
+                  "discord": {
+                    // Главный переключатель всей интеграции с Discord.
+                    "enabled": %s,
+                    // Релеить глобальный чат и вход/выход игроков в Discord.
+                    "relayChatToDiscord": %s,
+                    // Webhook, куда идут глобальный чат и вход/выход.
+                    "chatWebhookUrl": %s,
+                    // Webhook для статуса сервера (запуск/остановка).
+                    "statusWebhookUrl": %s,
+                    // Релеить статус сервера.
+                    "relayServerStatus": %s,
+                    // Имя сервера для placeholder {server}.
+                    "serverName": %s,
+                    // Имя и аватар, под которыми публикуют webhook-и.
+                    "webhookUsername": %s,
+                    "webhookAvatarUrl": %s,
+                    // Формат сообщения чата в Discord. Placeholders: {player}, {message}, {server}.
+                    "gameToDiscordFormat": %s,
+                    // Форматы уведомлений. Placeholder: {player} / {server}.
+                    "joinFormat": %s,
+                    "leaveFormat": %s,
+                    "serverStartedFormat": %s,
+                    "serverStoppedFormat": %s,
+
+                    // Бот: Discord -> игра. Требует токен бота и MESSAGE CONTENT INTENT.
+                    "botEnabled": %s,
+                    "botToken": %s,
+                    "botChannelId": %d,
+                    // Показывать сообщения из Discord в игре.
+                    "relayDiscordToGame": %s,
+                    // Формат сообщения из Discord в игре. Placeholders: {username}, {message}.
+                    "discordToGameFormat": %s
                   }
                 }
                 """.formatted(
@@ -463,7 +544,19 @@ public class VChatTabConfig {
                 config.ftbTeams.showMemberCount, config.ftbTeams.hideHoverWithoutTeam,
                 json(config.ftbTeams.teamLabel), json(config.ftbTeams.rankLabel),
                 json(config.ftbTeams.membersLabel), json(config.ftbTeams.noTeamText),
-                config.deathMessages.enabled, config.deathMessages.hidePlayerHeads);
+                config.deathMessages.enabled, config.deathMessages.hidePlayerHeads,
+                config.stages.enabled, config.stages.appendToSuffix,
+                json(config.stages.separator), GSON.toJson(config.stages.chapters),
+                config.discord.enabled, config.discord.relayChatToDiscord,
+                json(config.discord.chatWebhookUrl), json(config.discord.statusWebhookUrl),
+                config.discord.relayServerStatus, json(config.discord.serverName),
+                json(config.discord.webhookUsername), json(config.discord.webhookAvatarUrl),
+                json(config.discord.gameToDiscordFormat),
+                json(config.discord.joinFormat), json(config.discord.leaveFormat),
+                json(config.discord.serverStartedFormat), json(config.discord.serverStoppedFormat),
+                config.discord.botEnabled, json(config.discord.botToken),
+                Math.max(0, config.discord.botChannelId), config.discord.relayDiscordToGame,
+                json(config.discord.discordToGameFormat));
     }
 
     private static String json(String value) {
@@ -489,6 +582,39 @@ public class VChatTabConfig {
         if (instance.luckPerms == null) instance.luckPerms = new LuckPermsSettings();
         if (instance.ftbTeams == null) instance.ftbTeams = new FTBTeamsSettings();
         if (instance.deathMessages == null) instance.deathMessages = new DeathMessageSettings();
+        if (instance.stages == null) instance.stages = new StagesSettings();
+        if (instance.stages.chapters == null) instance.stages.chapters = new ArrayList<>();
+        instance.stages.chapters.removeIf(entry -> entry == null
+                || entry.chapter == null || entry.chapter.isBlank()
+                || entry.tag == null || entry.tag.isBlank());
+        if (instance.stages.separator == null) instance.stages.separator = " ";
+        if (instance.discord == null) instance.discord = new DiscordSettings();
+        DiscordSettings defaultDiscord = new DiscordSettings();
+        if (instance.discord.chatWebhookUrl == null) instance.discord.chatWebhookUrl = "";
+        if (instance.discord.statusWebhookUrl == null) instance.discord.statusWebhookUrl = "";
+        if (instance.discord.serverName == null || instance.discord.serverName.isBlank()) {
+            instance.discord.serverName = defaultDiscord.serverName;
+        }
+        if (instance.discord.webhookUsername == null || instance.discord.webhookUsername.isBlank()) {
+            instance.discord.webhookUsername = defaultDiscord.webhookUsername;
+        }
+        if (instance.discord.webhookAvatarUrl == null) instance.discord.webhookAvatarUrl = "";
+        if (instance.discord.gameToDiscordFormat == null) {
+            instance.discord.gameToDiscordFormat = defaultDiscord.gameToDiscordFormat;
+        }
+        if (instance.discord.joinFormat == null) instance.discord.joinFormat = defaultDiscord.joinFormat;
+        if (instance.discord.leaveFormat == null) instance.discord.leaveFormat = defaultDiscord.leaveFormat;
+        if (instance.discord.serverStartedFormat == null) {
+            instance.discord.serverStartedFormat = defaultDiscord.serverStartedFormat;
+        }
+        if (instance.discord.serverStoppedFormat == null) {
+            instance.discord.serverStoppedFormat = defaultDiscord.serverStoppedFormat;
+        }
+        if (instance.discord.botToken == null) instance.discord.botToken = "";
+        instance.discord.botChannelId = Math.max(0, instance.discord.botChannelId);
+        if (instance.discord.discordToGameFormat == null) {
+            instance.discord.discordToGameFormat = defaultDiscord.discordToGameFormat;
+        }
         if (instance.chat.playerFormatting == null) {
             instance.chat.playerFormatting = new PlayerFormattingSettings();
         }
@@ -625,6 +751,90 @@ public class VChatTabConfig {
         }
     }
 
+    /**
+     * One-time import of the old MC Chat Link config (mcchatlink-server.toml)
+     * into the new "discord" section, run only when that section was missing.
+     */
+    private static void migrateMcChatLinkToml() {
+        Path toml = configDir.resolve("mcchatlink-server.toml");
+        if (!Files.exists(toml)) return;
+
+        String section = "";
+        try {
+            var lines = Files.readAllLines(toml, StandardCharsets.UTF_8);
+            for (String line : lines) {
+                String trimmed = line.trim();
+                if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
+                if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                    section = trimmed.substring(1, trimmed.length() - 1);
+                    continue;
+                }
+                int eq = trimmed.indexOf('=');
+                if (eq <= 0) continue;
+                String key = trimmed.substring(0, eq).trim();
+                String value = trimmed.substring(eq + 1).trim();
+                value = value.replaceAll("^\"|\"$", "");
+                applyMcChatLinkValue(section, key, value);
+            }
+            LOGGER.info("Imported Discord settings from the old MC Chat Link config: {}", toml);
+        } catch (Exception e) {
+            LOGGER.warn("Could not import MC Chat Link Discord settings from {}", toml, e);
+        }
+    }
+
+    private static void applyMcChatLinkValue(String section, String key, String value) {
+        if (instance.discord == null) instance.discord = new DiscordSettings();
+        if ("discord".equals(section)) {
+            switch (key) {
+                case "chatWebhookUrl" -> instance.discord.chatWebhookUrl = value;
+                case "statusWebhookUrl" -> instance.discord.statusWebhookUrl = value;
+                case "serverName" -> {
+                    if (!value.isBlank()) instance.discord.serverName = value;
+                }
+                case "relayServerStatus" -> instance.discord.relayServerStatus = parseBool(value,
+                        instance.discord.relayServerStatus);
+                case "webhookUsername" -> {
+                    if (!value.isBlank()) instance.discord.webhookUsername = value;
+                }
+                case "webhookAvatarUrl" -> instance.discord.webhookAvatarUrl = value;
+                case "relayChatToDiscord" -> instance.discord.relayChatToDiscord = parseBool(value,
+                        instance.discord.relayChatToDiscord);
+                case "gameToDiscordFormat" -> {
+                    if (!value.isBlank()) instance.discord.gameToDiscordFormat = value;
+                }
+                default -> {
+                }
+            }
+        } else if ("bot".equals(section)) {
+            switch (key) {
+                case "botEnabled" -> instance.discord.botEnabled = parseBool(value,
+                        instance.discord.botEnabled);
+                case "botToken" -> {
+                    if (!value.isBlank()) instance.discord.botToken = value;
+                }
+                case "botChannelId" -> {
+                    try {
+                        instance.discord.botChannelId = Long.parseLong(value);
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
+                case "relayDiscordToGame" -> instance.discord.relayDiscordToGame = parseBool(value,
+                        instance.discord.relayDiscordToGame);
+                case "discordToGameFormat" -> {
+                    if (!value.isBlank()) instance.discord.discordToGameFormat = value;
+                }
+                default -> {
+                }
+            }
+        }
+    }
+
+    private static boolean parseBool(String value, boolean fallback) {
+        if ("true".equalsIgnoreCase(value)) return true;
+        if ("false".equalsIgnoreCase(value)) return false;
+        return fallback;
+    }
+
     public static final class TabSettings {
         public String header = "\n&6&lValorCraft\n&7Игроки: &f%online%&8/&7%max%\n";
         public String footer = "\n&8valorcraft.ru\n";
@@ -725,5 +935,75 @@ public class VChatTabConfig {
     public static final class DeathMessageSettings {
         public boolean enabled = true;
         public boolean hidePlayerHeads = true;
+    }
+
+    public static final class StagesSettings {
+        // Главный переключатель показа этапа развития игрока.
+        public boolean enabled = true;
+        // Автоматически добавлять тег этапа в конец <suffix> в TAB и чате.
+        public boolean appendToSuffix = true;
+        // Разделитель между суффиксом LuckPerms и тегом этапа.
+        public String separator = " ";
+        public List<StageChapter> chapters = new ArrayList<>(List.of(
+                new StageChapter("questsstoneage", "&7Stone Age"),
+                new StageChapter("questssteam_age", "&7Steam"),
+                new StageChapter("lv__low_voltage", "&aLV"),
+                new StageChapter("mv__medium_voltage", "&bMV"),
+                new StageChapter("hv__high_voltage", "&eHV"),
+                new StageChapter("ev__extreme_voltage", "&dEV"),
+                new StageChapter("iv__insane_voltage", "&5IV"),
+                new StageChapter("luv__ludicrous_voltage", "&dLuV"),
+                new StageChapter("zpm__zero_point_module", "&fZPM"),
+                new StageChapter("uv__ultimate_voltage", "&cUV")
+        ));
+    }
+
+    public static final class StageChapter {
+        // Имя файла главы FTB Quests без расширения .snbt.
+        public String chapter;
+        // Текст, который будет показан игроку. Поддерживает &-цвета и HEX.
+        public String tag;
+
+        public StageChapter() {
+        }
+
+        public StageChapter(String chapter, String tag) {
+            this.chapter = chapter;
+            this.tag = tag;
+        }
+    }
+
+    public static final class DiscordSettings {
+        // Главный переключатель всей интеграции с Discord.
+        public boolean enabled = true;
+        // Релеить глобальный чат и вход/выход игроков в Discord.
+        public boolean relayChatToDiscord = true;
+        // Webhook, куда идут глобальный чат и сообщения о входе/выходе.
+        public String chatWebhookUrl = "";
+        // Webhook для статуса сервера (запуск/остановка).
+        public String statusWebhookUrl = "";
+        // Релеить статус сервера.
+        public boolean relayServerStatus = true;
+        // Имя сервера для placeholder {server}.
+        public String serverName = "ValorCraft";
+        // Имя и аватар, под которыми публикуют webhook-ы.
+        public String webhookUsername = "ValorCraft";
+        public String webhookAvatarUrl = "";
+        // Формат сообщения чата в Discord. Placeholders: {player}, {message}, {server}.
+        public String gameToDiscordFormat = "**{player}**: {message}";
+        // Форматы уведомлений. Placeholder: {player} / {server}.
+        public String joinFormat = "**{player}** вошёл на сервер";
+        public String leaveFormat = "**{player}** вышел с сервера";
+        public String serverStartedFormat = "🟢 Сервер запущен | {server}";
+        public String serverStoppedFormat = "🔴 Сервер остановлен | {server}";
+
+        // Бот: Discord -> игра. Требует токен бота и MESSAGE CONTENT INTENT.
+        public boolean botEnabled = false;
+        public String botToken = "";
+        public long botChannelId = 0;
+        // Показывать сообщения из Discord в игре.
+        public boolean relayDiscordToGame = true;
+        // Формат сообщения из Discord в игре. Placeholders: {username}, {message}.
+        public String discordToGameFormat = "&8[Discord] &7{username}&8: &f{message}";
     }
 }

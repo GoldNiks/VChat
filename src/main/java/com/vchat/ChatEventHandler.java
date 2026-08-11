@@ -110,6 +110,7 @@ public class ChatEventHandler {
             }
         }
         if (VChatTabConfig.logChatMessages()) LOGGER.info(text.getString());
+        DiscordBridge.relayGlobalChat(sender, mentions.message());
     }
 
     private void broadcastLocal(ServerPlayer sender, String message) {

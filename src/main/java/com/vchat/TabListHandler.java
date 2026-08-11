@@ -85,11 +85,13 @@ public class TabListHandler {
     private static void refreshPlayerTeam(ServerPlayer player, boolean force) {
         boolean sortPlayers = VChatTabConfig.enableTabSorting();
         LuckPermsBridge.PlayerData luckPerms = LuckPermsBridge.read(player);
-        String displaySignature = VChatTabConfig.tabPlayerFormat()
+String displaySignature = VChatTabConfig.tabPlayerFormat()
                 + '|' + luckPerms.prefix() + '|' + luckPerms.suffix()
                 + '|' + luckPerms.primaryGroup() + '|' + luckPerms.groupWeight()
                 + '|' + player.serverLevel().dimension().location()
-                + '|' + player.getDisplayName().getString();
+                + '|' + player.getDisplayName().getString()
+                + '|' + FTBQuestsStageBridge.stageText(player)
+                + '|' + VEconomyBridge.balanceText(player);
         boolean displayChanged = force || !displaySignature.equals(TAB_DISPLAY_STATES.get(player.getUUID()));
 
         // Prefixes and suffixes are rendered by TabListNameFormat and do not
@@ -195,11 +197,13 @@ public class TabListHandler {
         String h = VChatTabConfig.header()
                 .replace("%online%", String.valueOf(online))
                 .replace("%max%", String.valueOf(max))
-                .replace("%player%", playerName);
+                .replace("%player%", playerName)
+                .replace("%tps%", TpsUtil.format(player.getServer().getAverageTickTime()));
         String f = VChatTabConfig.footer()
                 .replace("%online%", String.valueOf(online))
                 .replace("%max%", String.valueOf(max))
-                .replace("%player%", playerName);
+                .replace("%player%", playerName)
+                .replace("%tps%", TpsUtil.format(player.getServer().getAverageTickTime()));
 
         player.connection.send(new ClientboundTabListPacket(HexUtil.fromLegacy(h), HexUtil.fromLegacy(f)));
     }

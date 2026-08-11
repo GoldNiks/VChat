@@ -20,8 +20,9 @@ public class GLReloadCommand {
                                         "§cVChat config contains an error. Previous settings are still active; see server log."));
                                 return 0;
                             }
-                            var server = ctx.getSource().getServer();
+var server = ctx.getSource().getServer();
                             TabListHandler.refreshAll(server, true);
+                            DiscordBridge.reload();
                             ctx.getSource().sendSuccess(() -> Component.literal("§aVChat config reloaded"), true);
                             return 1;
                         })
