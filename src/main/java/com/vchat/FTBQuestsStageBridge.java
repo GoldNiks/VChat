@@ -6,6 +6,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -45,17 +46,35 @@ public final class FTBQuestsStageBridge {
             Object file = questFile();
             Object teamData = teamData(file, player);
             if (file == null || teamData == null) return "";
-            for (VChatTabConfig.StageChapter stage : VChatTabConfig.stageChapters()) {
-                Object chapter = chapter(file, stage.chapter);
-                if (chapter != null && Boolean.TRUE.equals(isCompletedRaw.invoke(chapter, teamData))) {
-                    return stage.tag;
+            return selectStageTag(VChatTabConfig.stageChapters(), chapterName -> {
+                try {
+                    Object chapter = chapter(file, chapterName);
+                    return chapter != null
+                            && Boolean.TRUE.equals(isCompletedRaw.invoke(chapter, teamData));
+                } catch (ReflectiveOperationException error) {
+                    logFailure(error);
+                    return false;
                 }
-            }
-            return "";
+            });
         } catch (ReflectiveOperationException error) {
             logFailure(error);
             return "";
         }
+    }
+
+    /**
+     * Returns the tag of the most advanced completed chapter: the chapters are
+     * ordered from early to late, so the list is scanned from the end.
+     */
+    static String selectStageTag(List<VChatTabConfig.StageChapter> chapters,
+                                  java.util.function.Predicate<String> chapterCompleted) {
+        for (int i = chapters.size() - 1; i >= 0; i--) {
+            VChatTabConfig.StageChapter stage = chapters.get(i);
+            if (stage.chapter != null && chapterCompleted.test(stage.chapter)) {
+                return stage.tag;
+            }
+        }
+        return "";
     }
 
     private static Object questFile() throws ReflectiveOperationException {
@@ -74,7 +93,10 @@ public final class FTBQuestsStageBridge {
     private static Object teamData(Object file, ServerPlayer player) throws ReflectiveOperationException {
         if (file == null) return null;
         if (teamDataGet == null) {
-            teamDataGet = Class.forName(TEAM_DATA_CLASS).getMethod("get", ServerPlayer.class);
+            // FTB Quests 2001.x (1.20.1): TeamData.get(Player) — note that it
+            // takes the base Player class, not ServerPlayer.
+            teamDataGet = Class.forName(TEAM_DATA_CLASS).getMethod("get",
+                    Class.forName("net.minecraft.world.entity.player.Player"));
         }
         return teamDataGet.invoke(null, player);
     }

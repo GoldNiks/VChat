@@ -84,11 +84,10 @@ public final class MessageFormatter {
             if (replacement == null || replacement.isEmpty()) continue;
 
             int piecesBefore = result.getSiblings().size();
-            if (containsFormatting(replacement)) {
-                current = HexUtil.appendLegacy(result, replacement, current);
-            } else {
-                result.append(Component.literal(replacement).withStyle(current));
-            }
+            // The replacement is always parsed like pattern text: this keeps all
+            // HEX forms (#RRGGBB, &#RRGGBB, &%23RRGGBB) and &-codes working
+            // inside LuckPerms prefixes/suffixes and other values.
+            current = HexUtil.appendLegacy(result, replacement, current);
             if (hoverEvent != null && ("name".equals(key) || "display_name".equals(key))) {
                 List<Component> siblings = result.getSiblings();
                 for (int i = piecesBefore; i < siblings.size(); i++) {
@@ -100,16 +99,5 @@ public final class MessageFormatter {
         }
         HexUtil.appendLegacy(result, text, cursor, text.length(), current);
         return result;
-    }
-
-    private static boolean containsFormatting(String value) {
-        for (int i = 0; i + 1 < value.length(); i++) {
-            char c = value.charAt(i);
-            if ((c == '&' || c == '§') && ("0123456789abcdefklmnor#".indexOf(
-                    Character.toLowerCase(value.charAt(i + 1))) >= 0)) {
-                return true;
-            }
-        }
-        return false;
     }
 }

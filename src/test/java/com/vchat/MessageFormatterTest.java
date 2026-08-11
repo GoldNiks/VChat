@@ -106,4 +106,32 @@ class MessageFormatterTest {
     void multipleSamePlaceholders() {
         assertEquals("aStevebStevec", plain(VALUES, "a<name>b<name>c"));
     }
+
+    @Test
+    void plainHashHexInsideReplacementValueParsed() {
+        Component rendered = MessageFormatter.formatValues("<prefix><name>",
+                Map.of("prefix", "#FF0000[Admin] ", "name", "Steve"), null);
+        assertEquals("[Admin] Steve", rendered.getString());
+        List<Component> siblings = rendered.getSiblings();
+        assertEquals("[Admin] ", siblings.get(0).getString());
+        assertEquals(0xFF0000, siblings.get(0).getStyle().getColor().getValue());
+    }
+
+    @Test
+    void percentHashHexInsideReplacementValueParsed() {
+        Component rendered = MessageFormatter.formatValues("<prefix><name>",
+                Map.of("prefix", "&%23FF0000[Admin] ", "name", "Steve"), null);
+        assertEquals("[Admin] Steve", rendered.getString());
+        List<Component> siblings = rendered.getSiblings();
+        assertEquals("[Admin] ", siblings.get(0).getString());
+        assertEquals(0xFF0000, siblings.get(0).getStyle().getColor().getValue());
+    }
+
+    @Test
+    void ampersandHexInsideReplacementValueParsed() {
+        Component rendered = MessageFormatter.formatValues("<prefix><name>",
+                Map.of("prefix", "&#FF0000[Admin] ", "name", "Steve"), null);
+        assertEquals("[Admin] Steve", rendered.getString());
+        assertEquals(0xFF0000, rendered.getSiblings().get(0).getStyle().getColor().getValue());
+    }
 }
