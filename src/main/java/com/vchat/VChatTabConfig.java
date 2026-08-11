@@ -16,7 +16,7 @@ import java.util.List;
 
 public class VChatTabConfig {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("VChat");
-    private static final int CURRENT_CONFIG_VERSION = 14;
+    private static final int CURRENT_CONFIG_VERSION = 15;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
     public TabSettings tab = new TabSettings();
@@ -198,6 +198,7 @@ public class VChatTabConfig {
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
             int fileVersion = getInt(json, "configVersion", 1);
+            boolean hasDiscordSection = json.has("discord") && json.get("discord").isJsonObject();
             VChatTabConfig loaded = GSON.fromJson(json, VChatTabConfig.class);
             instance = loaded;
             normalize();
@@ -213,7 +214,10 @@ public class VChatTabConfig {
                     instance.chat.antiSpam.cooldownMillis = 500;
                 }
                 upgradeOldDefaults(instance);
-                migrateMcChatLinkToml();
+                // Import MC Chat Link only for genuinely old configs which did
+                // not have VChat's own Discord section. Never overwrite values
+                // explicitly configured by the administrator.
+                if (!hasDiscordSection) migrateMcChatLinkToml();
                 instance.configVersion = CURRENT_CONFIG_VERSION;
                 if (!writeTemplate(file, instance)) {
                     instance = previous;

@@ -54,7 +54,7 @@ class VChatTabConfigTest {
 
         Path config = directory.resolve("vchat-config.json5");
         String generated = Files.readString(config);
-        assertTrue(generated.contains("\"configVersion\": 14"));
+        assertTrue(generated.contains("\"configVersion\": 15"));
         assertTrue(generated.contains("\"detectionMode\": \"started\""));
         assertTrue(generated.contains("\"quests\": []"));
         assertTrue(generated.contains("ВАШ_ID_ИЗ_SNBT"));
@@ -66,7 +66,7 @@ class VChatTabConfigTest {
         assertTrue(Files.exists(directory.resolve("vchat-config.json5.last-good")));
 
         String versionSeven = generated
-                .replace("\"configVersion\": 14", "\"configVersion\": 7")
+                .replace("\"configVersion\": 15", "\"configVersion\": 7")
                 .replace("\"cooldownMillis\": 500", "\"cooldownMillis\": 1000");
         Files.writeString(config, versionSeven);
         assertTrue(VChatTabConfig.reload(directory));
@@ -75,5 +75,26 @@ class VChatTabConfigTest {
         Files.writeString(config, "{ broken json");
         assertFalse(VChatTabConfig.reload(directory));
         assertEquals(500, VChatTabConfig.cooldownMillis());
+    }
+
+    @Test
+    void versionUpgradeDoesNotOverwriteDiscordWithOldMcChatLinkConfig() throws Exception {
+        Path directory = Files.createTempDirectory("vchat-discord-upgrade-test-");
+        assertTrue(VChatTabConfig.reload(directory));
+        Path config = directory.resolve("vchat-config.json5");
+        String generated = Files.readString(config)
+                .replace("\"configVersion\": 15", "\"configVersion\": 14")
+                .replace("\"chatWebhookUrl\": \"\"",
+                        "\"chatWebhookUrl\": \"https://discord.com/api/webhooks/current\"");
+        Files.writeString(config, generated);
+        Files.writeString(directory.resolve("mcchatlink-server.toml"), """
+                [discord]
+                chatWebhookUrl = "https://discord.com/api/webhooks/old"
+                relayChatToDiscord = false
+                """);
+
+        assertTrue(VChatTabConfig.reload(directory));
+        assertEquals("https://discord.com/api/webhooks/current", VChatTabConfig.discordChatWebhookUrl());
+        assertTrue(VChatTabConfig.discordRelayChatToDiscord());
     }
 }

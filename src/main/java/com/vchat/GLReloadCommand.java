@@ -71,6 +71,11 @@ public class GLReloadCommand {
                                     + VChatTabConfig.announcementsEnabled() + " §7(every "
                                     + VChatTabConfig.announcementsIntervalSeconds() + " s, "
                                     + VChatTabConfig.announcementsMessages().size() + " messages)"), false);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§7Discord enabled / chat relay: §f"
+                                    + VChatTabConfig.discordEnabled() + " / "
+                                    + VChatTabConfig.discordRelayChatToDiscord()), false);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§7Discord chat webhook configured: §f"
+                                    + !VChatTabConfig.discordChatWebhookUrl().isBlank()), false);
                             ctx.getSource().sendSuccess(() -> Component.literal("§7Command arguments in log: §f"
                                     + VChatTabConfig.includeCommandArguments()), false);
                             return 1;
@@ -113,6 +118,24 @@ public class GLReloadCommand {
                                     return 1;
                                 }))
                 )
+                .then(Commands.literal("discord-test")
+                        .executes(ctx -> {
+                            if (!VChatTabConfig.discordEnabled()) {
+                                ctx.getSource().sendFailure(Component.literal("§cDiscord integration is disabled"));
+                                return 0;
+                            }
+                            if (VChatTabConfig.discordChatWebhookUrl().isBlank()) {
+                                ctx.getSource().sendFailure(Component.literal("§cDiscord chat webhook URL is empty"));
+                                return 0;
+                            }
+                            DiscordWebhook.send(VChatTabConfig.discordChatWebhookUrl(),
+                                    "✅ VChat webhook test | " + VChatTabConfig.discordServerName(),
+                                    VChatTabConfig.discordWebhookUsername(),
+                                    VChatTabConfig.discordWebhookAvatarUrl());
+                            ctx.getSource().sendSuccess(() -> Component.literal(
+                                    "§aDiscord webhook test queued; check Discord and server log"), false);
+                            return 1;
+                        }))
         );
     }
 
