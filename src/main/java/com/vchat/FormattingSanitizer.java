@@ -45,6 +45,31 @@ public final class FormattingSanitizer {
         return result.toString();
     }
 
+    /** Removes Minecraft legacy/HEX formatting while preserving visible text. */
+    public static String stripFormatting(String message) {
+        if (message == null || message.isEmpty()) return "";
+
+        StringBuilder result = new StringBuilder(message.length());
+        for (int i = 0; i < message.length();) {
+            int hexLength = hexTokenLength(message, i);
+            if (hexLength > 0) {
+                i += hexLength;
+                continue;
+            }
+
+            char marker = message.charAt(i);
+            if ((marker == '&' || marker == '§') && i + 1 < message.length()
+                    && isFormattingCode(Character.toLowerCase(message.charAt(i + 1)))) {
+                i += 2;
+                continue;
+            }
+
+            result.append(marker);
+            i++;
+        }
+        return result.toString();
+    }
+
     private static int hexTokenLength(String input, int index) {
         if (input.startsWith("&%23", index) && hasHexDigits(input, index + 4)) return 10;
         if (input.startsWith("&#", index) && hasHexDigits(input, index + 2)) return 8;

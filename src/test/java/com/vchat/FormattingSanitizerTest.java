@@ -22,4 +22,12 @@ class FormattingSanitizerTest {
         assertEquals("&#12AB34text", FormattingSanitizer.filter(
                 "#12ab34text", false, true, false, false));
     }
+
+    @Test
+    void stripsMentionAndHexFormattingForDiscord() {
+        assertEquals("@miitava, привет", FormattingSanitizer.stripFormatting(
+                "&e&l@miitava&r&f, &#12AB34привет"));
+        assertEquals("текст", FormattingSanitizer.stripFormatting(
+                "&%23FF0000текст"));
+    }
 }

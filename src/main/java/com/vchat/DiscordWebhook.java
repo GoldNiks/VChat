@@ -1,6 +1,7 @@
 package com.vchat;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -42,6 +43,9 @@ public final class DiscordWebhook {
         try {
             JsonObject payload = new JsonObject();
             payload.addProperty("content", content == null ? "" : content);
+            JsonObject allowedMentions = new JsonObject();
+            allowedMentions.add("parse", new JsonArray());
+            payload.add("allowed_mentions", allowedMentions);
             if (username != null && !username.isEmpty()) payload.addProperty("username", username);
             if (avatarUrl != null && !avatarUrl.isEmpty()) payload.addProperty("avatar_url", avatarUrl);
 

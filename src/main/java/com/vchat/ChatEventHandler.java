@@ -84,7 +84,7 @@ public class ChatEventHandler {
         String raw = event.getRawText();
 
         if (raw.startsWith("!")) {
-            broadcastGlobal(player, raw.substring(1));
+            broadcastGlobal(player, ChatInputNormalizer.globalMessage(raw));
         } else {
             broadcastLocal(player, raw);
         }

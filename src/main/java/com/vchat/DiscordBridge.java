@@ -60,9 +60,10 @@ public class DiscordBridge {
     /** Relays a successfully sent global chat message to Discord. */
     public static void relayGlobalChat(ServerPlayer player, String message) {
         if (!VChatTabConfig.discordRelayChatToDiscord()) return;
+        String plainMessage = FormattingSanitizer.stripFormatting(message).stripLeading();
         String text = VChatTabConfig.discordGameToDiscordFormat()
                 .replace("{player}", player.getGameProfile().getName())
-                .replace("{message}", message == null ? "" : message)
+                .replace("{message}", plainMessage)
                 .replace("{server}", VChatTabConfig.discordServerName());
         DiscordWebhook.send(VChatTabConfig.discordChatWebhookUrl(), text,
                 VChatTabConfig.discordWebhookUsername(),
