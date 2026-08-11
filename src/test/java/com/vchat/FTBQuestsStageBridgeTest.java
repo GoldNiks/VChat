@@ -2,9 +2,11 @@ package com.vchat;
 
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FTBQuestsStageBridgeTest {
 
@@ -79,5 +81,34 @@ class FTBQuestsStageBridgeTest {
         assertEquals(-1L, FTBQuestsStageBridge.parseQuestId("FFFFFFFFFFFFFFFF"));
         assertEquals(0x6845144F7EA1081DL,
                 FTBQuestsStageBridge.parseQuestId("0x6845144F7EA1081D"));
+    }
+
+    @Test
+    void chapterChecksUseCorrectReflectionReceiver() throws Exception {
+        FakeTeamData teamData = new FakeTeamData();
+        FakeChapter chapter = new FakeChapter();
+        setBridgeMethod("isStarted", FakeTeamData.class.getMethod("isStarted", FakeChapter.class));
+        setBridgeMethod("isCompletedRaw", FakeChapter.class.getMethod("isCompletedRaw", FakeTeamData.class));
+
+        assertTrue(FTBQuestsStageBridge.chapterMatches(true, teamData, chapter));
+        assertTrue(FTBQuestsStageBridge.chapterMatches(false, teamData, chapter));
+    }
+
+    private static void setBridgeMethod(String name, java.lang.reflect.Method method) throws Exception {
+        Field field = FTBQuestsStageBridge.class.getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(null, method);
+    }
+
+    public static final class FakeTeamData {
+        public boolean isStarted(FakeChapter chapter) {
+            return chapter != null;
+        }
+    }
+
+    public static final class FakeChapter {
+        public boolean isCompletedRaw(FakeTeamData teamData) {
+            return teamData != null;
+        }
     }
 }

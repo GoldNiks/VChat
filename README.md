@@ -270,7 +270,7 @@
 
 ## Установка
 
-1. Поместить `VChat-1.6.6.jar` в `mods/` сервера Forge 1.20.1.
+1. Поместить `VChat-1.6.7.jar` в `mods/` сервера Forge 1.20.1.
 2. Установить LuckPerms, если нужны префиксы, permissions и сортировка.
 3. Перезапустить сервер.
 4. Настроить `config/VMods/VChat/vchat-config.json5` и выполнить `/vchat reload`.

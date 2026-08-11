@@ -55,7 +55,7 @@ public final class FTBQuestsStageBridge {
                         Object quest = quest(file, questId);
                         return quest != null
                                 && Boolean.TRUE.equals(isCompleted.invoke(teamData, quest));
-                    } catch (ReflectiveOperationException | IllegalArgumentException error) {
+                    } catch (ReflectiveOperationException | RuntimeException error) {
                         logFailure(error);
                         return false;
                     }
@@ -67,9 +67,8 @@ public final class FTBQuestsStageBridge {
                 try {
                     Object chapter = chapter(file, chapterName);
                     return chapter != null
-                            && Boolean.TRUE.equals((startedMode ? isStarted : isCompletedRaw)
-                            .invoke(chapter, teamData));
-                } catch (ReflectiveOperationException error) {
+                            && chapterMatches(startedMode, teamData, chapter);
+                } catch (ReflectiveOperationException | RuntimeException error) {
                     logFailure(error);
                     return false;
                 }
@@ -79,10 +78,18 @@ public final class FTBQuestsStageBridge {
                 return configured.get(0).tag;
             }
             return selected;
-        } catch (ReflectiveOperationException error) {
+        } catch (ReflectiveOperationException | RuntimeException error) {
             logFailure(error);
             return "";
         }
+    }
+
+    static boolean chapterMatches(boolean startedMode, Object teamData, Object chapter)
+            throws ReflectiveOperationException {
+        if (startedMode) {
+            return Boolean.TRUE.equals(isStarted.invoke(teamData, chapter));
+        }
+        return Boolean.TRUE.equals(isCompletedRaw.invoke(chapter, teamData));
     }
 
     /**

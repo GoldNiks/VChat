@@ -4,7 +4,7 @@ plugins {
     id 'net.minecraftforge.gradle' version '[6.0.24,6.2)'
 }
 
-version = '1.6.6'
+version = '1.6.7'
 group = 'com.vchat'
 archivesBaseName = 'VChat'
 
