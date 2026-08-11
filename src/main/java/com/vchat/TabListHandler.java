@@ -30,14 +30,15 @@ public class TabListHandler {
                 FirstJoinManager.markJoined(player.getUUID());
                 broadcastFirstJoin(player);
             } else {
-                player.sendSystemMessage(HexUtil.fromLegacy(VChatTabConfig.joinMessage()));
+                player.sendSystemMessage(MessageFormatter.tabText(VChatTabConfig.joinMessage(), player,
+                        LuckPermsBridge.read(player)));
             }
         }
     }
 
     private static void broadcastFirstJoin(ServerPlayer joiner) {
-        Component message = HexUtil.fromLegacy(VChatTabConfig.firstJoinMessage()
-                .replace("<name>", joiner.getDisplayName().getString()));
+        Component message = MessageFormatter.tabText(VChatTabConfig.firstJoinMessage(), joiner,
+                LuckPermsBridge.read(joiner));
         for (ServerPlayer online : joiner.getServer().getPlayerList().getPlayers()) {
             online.sendSystemMessage(message);
         }
@@ -190,24 +191,10 @@ public class TabListHandler {
     }
 
     public static void sendTabList(ServerPlayer player) {
-        int online = player.getServer().getPlayerList().getPlayerCount();
-        int max = player.getServer().getPlayerList().getMaxPlayers();
-        String playerName = player.getDisplayName().getString();
-
-        String h = VChatTabConfig.header()
-                .replace("%online%", String.valueOf(online))
-                .replace("%max%", String.valueOf(max))
-                .replace("%player%", playerName)
-                .replace("%balance%", VEconomyBridge.balanceText(player))
-                .replace("%tps%", TpsUtil.format(player.getServer().getAverageTickTime()));
-        String f = VChatTabConfig.footer()
-                .replace("%online%", String.valueOf(online))
-                .replace("%max%", String.valueOf(max))
-                .replace("%player%", playerName)
-                .replace("%balance%", VEconomyBridge.balanceText(player))
-                .replace("%tps%", TpsUtil.format(player.getServer().getAverageTickTime()));
-
-        player.connection.send(new ClientboundTabListPacket(HexUtil.fromLegacy(h), HexUtil.fromLegacy(f)));
+        LuckPermsBridge.PlayerData data = LuckPermsBridge.read(player);
+        Component header = MessageFormatter.tabText(VChatTabConfig.header(), player, data);
+        Component footer = MessageFormatter.tabText(VChatTabConfig.footer(), player, data);
+        player.connection.send(new ClientboundTabListPacket(header, footer));
     }
 
     private record PlayerTabState(String teamName) {

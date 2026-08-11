@@ -327,7 +327,9 @@ public class VChatTabConfig {
                 "tab": {
                   // Текст сверху. Новая строка: \\n. Пустая строка: \\n\\n.
                   // Жёсткого лимита строк нет, но для небольших экранов рекомендуется 2-4 строки.
-                  // Доступны: %%online%%, %%max%%, %%player%%, %%balance%%, %%tps%%.
+                  // Все placeholders принимают оба вида: <name> и %%name%%.
+                  // Доступны: prefix, suffix, name, display_name, player, group, world,
+                  // channel, stage, balance, tps, online, max. В чате также доступен message.
                   // Цвета: &0-&f, стили: &l &m &n &o &r, HEX: &#RRGGBB.
                   "header": %s,
                   // Текст снизу. Переносы, цвета и подстановки работают так же.
@@ -336,11 +338,11 @@ public class VChatTabConfig {
                   // Личное сообщение игроку после входа на сервер.
                   "joinMessage": %s,
                   // Сообщение всем игрокам при самом первом входе нового игрока на сервер.
-                  // Доступен placeholder <name>. UUID всех уже заходивших игроков
+                  // Поддерживает те же placeholders в обоих видах. UUID всех уже заходивших игроков
                   // хранятся в config/vchat-firstjoin.json.
                   "firstJoinMessage": %s,
                   // Формат строки игрока в TAB.
-                  // Доступны: <prefix>, <suffix>, <name>, <display_name>, <group>, <world>, <stage>, <balance>, <tps>.
+                  // Те же placeholders; можно использовать как <name>, так и %%name%%.
                   "playerFormat": %s,
                   // Как часто обновлять TAB и данные LuckPerms. 20 тиков = примерно 1 секунда.
                   "updateIntervalTicks": %d

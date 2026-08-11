@@ -19,13 +19,16 @@ class MessageFormatterTest {
             Map.entry("suffix", "&r"),
             Map.entry("name", "Steve"),
             Map.entry("display_name", "Steve"),
+            Map.entry("player", "Steve"),
             Map.entry("message", "hello"),
             Map.entry("group", "default"),
             Map.entry("world", "minecraft:overworld"),
             Map.entry("channel", "global"),
             Map.entry("stage", "Глава 1"),
             Map.entry("balance", "100"),
-            Map.entry("tps", "19.5")
+            Map.entry("tps", "19.5"),
+            Map.entry("online", "12"),
+            Map.entry("max", "100")
     );
 
     private static String plain(Map<String, String> values, String pattern) {
@@ -40,8 +43,18 @@ class MessageFormatterTest {
     }
 
     @Test
+    void angleAndPercentSyntaxWorkForEveryPlaceholder() {
+        for (Map.Entry<String, String> entry : VALUES.entrySet()) {
+            String expected = plain(Map.of(), entry.getValue());
+            assertEquals(expected, plain(VALUES, "<" + entry.getKey() + ">"));
+            assertEquals(expected, plain(VALUES, "%" + entry.getKey() + "%"));
+        }
+    }
+
+    @Test
     void unknownPlaceholderLeftAsIs() {
         assertEquals("Hi <unknown>", plain(VALUES, "Hi <unknown>"));
+        assertEquals("Hi %unknown%", plain(VALUES, "Hi %unknown%"));
     }
 
     @Test

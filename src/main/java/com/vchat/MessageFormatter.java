@@ -13,14 +13,15 @@ import java.util.regex.Pattern;
 
 public final class MessageFormatter {
     private static final Pattern PLACEHOLDER = Pattern.compile(
-            "<(prefix|suffix|name|display_name|message|group|world|channel|stage|balance|tps)>"
+            "<(prefix|suffix|name|display_name|player|message|group|world|channel|stage|balance|tps|online|max)>"
+                    + "|%(prefix|suffix|name|display_name|player|message|group|world|channel|stage|balance|tps|online|max)%"
     );
 
     private MessageFormatter() {
     }
 
     private static boolean patternContainsStage(String pattern) {
-        return pattern != null && pattern.contains("<stage>");
+        return pattern != null && (pattern.contains("<stage>") || pattern.contains("%stage%"));
     }
 
     public static Component chat(String pattern, ServerPlayer player, String message, String channel) {
@@ -29,6 +30,10 @@ public final class MessageFormatter {
     }
 
     public static Component player(String pattern, ServerPlayer player, LuckPermsBridge.PlayerData data) {
+        return format(pattern, player, data, "", "tab", false);
+    }
+
+    public static Component tabText(String pattern, ServerPlayer player, LuckPermsBridge.PlayerData data) {
         return format(pattern, player, data, "", "tab", false);
     }
 
@@ -54,13 +59,16 @@ public final class MessageFormatter {
                 Map.entry("suffix", suffix),
                 Map.entry("name", player.getScoreboardName()),
                 Map.entry("display_name", player.getDisplayName().getString()),
+                Map.entry("player", player.getDisplayName().getString()),
                 Map.entry("message", message == null ? "" : message),
                 Map.entry("group", data.primaryGroup()),
                 Map.entry("world", player.serverLevel().dimension().location().toString()),
                 Map.entry("channel", channel == null ? "" : channel),
                 Map.entry("stage", stage),
                 Map.entry("balance", VEconomyBridge.balanceText(player)),
-                Map.entry("tps", TpsUtil.format(player.getServer().getAverageTickTime()))
+                Map.entry("tps", TpsUtil.format(player.getServer().getAverageTickTime())),
+                Map.entry("online", String.valueOf(player.getServer().getPlayerList().getPlayerCount())),
+                Map.entry("max", String.valueOf(player.getServer().getPlayerList().getMaxPlayers()))
         );
 
         // One pass over the pattern: legacy formatting is parsed continuously
@@ -79,7 +87,7 @@ public final class MessageFormatter {
             current = HexUtil.appendLegacy(result, text, cursor, matcher.start(), current);
             cursor = matcher.end();
 
-            String key = matcher.group(1);
+            String key = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
             String replacement = values.get(key);
             if (replacement == null || replacement.isEmpty()) continue;
 
