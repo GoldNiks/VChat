@@ -11,8 +11,7 @@ import java.util.Map;
 
 /**
  * Optional FTB Quests integration without a hard runtime dependency.
- * Resolves a player's current development stage: the most advanced quest
- * chapter (by config order) that is fully completed.
+ * Resolves a player's current development stage from configured quest chapters.
  */
 public final class FTBQuestsStageBridge {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("VChat");
@@ -27,6 +26,7 @@ public final class FTBQuestsStageBridge {
     private static Method getAllChapters;
     private static Method getFilename;
     private static Method isCompletedRaw;
+    private static Method isStarted;
     private static Object cachedFile;
     private static Map<String, Object> chaptersByFilename = Map.of();
 
@@ -36,7 +36,7 @@ public final class FTBQuestsStageBridge {
     /**
      * Returns the configured tag of the player's current stage, or "" when
      * FTB Quests is unavailable, the system is disabled or no stage chapter
-     * is completed yet.
+     * matches the configured detection mode yet.
      */
     public static String stageText(ServerPlayer player) {
         // The system only ever writes into the suffix and <stage>; when it is
@@ -46,16 +46,24 @@ public final class FTBQuestsStageBridge {
             Object file = questFile();
             Object teamData = teamData(file, player);
             if (file == null || teamData == null) return "";
-            return selectStageTag(VChatTabConfig.stageChapters(), chapterName -> {
+            List<VChatTabConfig.StageChapter> configured = VChatTabConfig.stageChapters();
+            boolean startedMode = VChatTabConfig.stageDetectionMode().equals("started");
+            String selected = selectStageTag(configured, chapterName -> {
                 try {
                     Object chapter = chapter(file, chapterName);
                     return chapter != null
-                            && Boolean.TRUE.equals(isCompletedRaw.invoke(chapter, teamData));
+                            && Boolean.TRUE.equals((startedMode ? isStarted : isCompletedRaw)
+                            .invoke(chapter, teamData));
                 } catch (ReflectiveOperationException error) {
                     logFailure(error);
                     return false;
                 }
             });
+            if (selected.isEmpty() && startedMode && !configured.isEmpty()
+                    && chapter(file, configured.get(0).chapter) != null) {
+                return configured.get(0).tag;
+            }
+            return selected;
         } catch (ReflectiveOperationException error) {
             logFailure(error);
             return "";
@@ -115,6 +123,10 @@ public final class FTBQuestsStageBridge {
         if (isCompletedRaw == null) {
             isCompletedRaw = Class.forName(QUEST_OBJECT_CLASS)
                     .getMethod("isCompletedRaw", Class.forName(TEAM_DATA_CLASS));
+        }
+        if (isStarted == null) {
+            isStarted = Class.forName(TEAM_DATA_CLASS)
+                    .getMethod("isStarted", Class.forName(QUEST_OBJECT_CLASS));
         }
         Collection<?> chapters = (Collection<?>) getAllChapters.invoke(file);
         Map<String, Object> rebuilt = new HashMap<>();

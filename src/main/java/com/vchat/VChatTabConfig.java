@@ -16,7 +16,7 @@ import java.util.List;
 
 public class VChatTabConfig {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("VChat");
-    private static final int CURRENT_CONFIG_VERSION = 12;
+    private static final int CURRENT_CONFIG_VERSION = 13;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
     public TabSettings tab = new TabSettings();
@@ -97,6 +97,7 @@ public class VChatTabConfig {
     public static String ftbTeamsNoTeamText() { ensure(); return instance.ftbTeams.noTeamText; }
     public static boolean stagesEnabled() { ensure(); return instance.stages.enabled; }
     public static boolean stagesAppendToSuffix() { ensure(); return instance.stages.appendToSuffix; }
+    public static String stageDetectionMode() { ensure(); return instance.stages.detectionMode; }
     public static String stageSeparator() { ensure(); return instance.stages.separator; }
     public static List<StageChapter> stageChapters() { ensure(); return List.copyOf(instance.stages.chapters); }
     public static boolean discordEnabled() { ensure(); return instance.discord.enabled; }
@@ -540,24 +541,26 @@ public class VChatTabConfig {
     private static String stagesJson(VChatTabConfig config) {
         return """
                 // Текущий этап развития игрока по главам квестов FTB Quests.
-                // Этап определяется первой в списке главой, все обязательные
-                // квесты которой игрок полностью выполнил.
                 "stages": {
                   // Главный переключатель показа этапа. Без FTB Quests на сервере
                   // этап просто не определяется, мод работает как раньше.
                   "enabled": %s,
+                  // Как определять текущий этап:
+                  // "started" — последняя начатая глава (рекомендуется; новый игрок получает первый этап);
+                  // "completed" — только последняя глава, выполненная на 100%%.
+                  "detectionMode": %s,
                   // true: тег этапа автоматически дописывается в конец <suffix>
                   // в TAB и чате. false: этап можно вывести вручную через <stage>.
                   "appendToSuffix": %s,
                   // Разделитель между суффиксом LuckPerms и тегом этапа.
                   "separator": %s,
-                  // Список глав сверху вниз: от ранних к поздним. Игроку
-                  // показывается последняя еже полностью пройдённая глава.
+                  // Список глав сверху вниз: от ранних к поздним. Игроку показывается
+                  // последняя подходящая глава согласно detectionMode.
                   // "chapter" - имя файла главы без расширения .snbt,
                   // "tag" - вывод, поддерживает &-цвета и HEX.
                   "chapters": %s
                 }
-                """.formatted(config.stages.enabled, config.stages.appendToSuffix,
+                """.formatted(config.stages.enabled, json(config.stages.detectionMode), config.stages.appendToSuffix,
                 json(config.stages.separator), GSON.toJson(config.stages.chapters));
     }
 
@@ -651,6 +654,13 @@ public class VChatTabConfig {
         if (instance.ftbTeams == null) instance.ftbTeams = new FTBTeamsSettings();
         if (instance.deathMessages == null) instance.deathMessages = new DeathMessageSettings();
         if (instance.stages == null) instance.stages = new StagesSettings();
+        if (instance.stages.detectionMode == null
+                || (!instance.stages.detectionMode.equalsIgnoreCase("started")
+                && !instance.stages.detectionMode.equalsIgnoreCase("completed"))) {
+            instance.stages.detectionMode = "started";
+        } else {
+            instance.stages.detectionMode = instance.stages.detectionMode.toLowerCase(java.util.Locale.ROOT);
+        }
         if (instance.stages.chapters == null) instance.stages.chapters = new ArrayList<>();
         instance.stages.chapters.removeIf(entry -> entry == null
                 || entry.chapter == null || entry.chapter.isBlank()
@@ -1017,12 +1027,15 @@ public class VChatTabConfig {
     public static final class StagesSettings {
         // Главный переключатель показа этапа развития игрока.
         public boolean enabled = true;
+        // "started" = текущая начатая глава; "completed" = только полностью завершённая.
+        public String detectionMode = "started";
         // Автоматически добавлять тег этапа в конец <suffix> в TAB и чате.
         public boolean appendToSuffix = true;
         // Разделитель между суффиксом LuckPerms и тегом этапа.
         public String separator = " ";
         public List<StageChapter> chapters = new ArrayList<>(List.of(
                 new StageChapter("questsstoneage", "&7Stone Age"),
+                new StageChapter("questsmetallurgy", "&6Metallurgy"),
                 new StageChapter("questssteam_age", "&7Steam"),
                 new StageChapter("lv__low_voltage", "&aLV"),
                 new StageChapter("mv__medium_voltage", "&bMV"),

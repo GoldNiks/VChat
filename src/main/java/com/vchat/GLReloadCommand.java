@@ -93,6 +93,11 @@ public class GLReloadCommand {
                                             .append(HexUtil.fromLegacy(emptyAsDash(data.prefix()))), false);
                                     ctx.getSource().sendSuccess(() -> Component.literal("§7Suffix: §f")
                                             .append(HexUtil.fromLegacy(emptyAsDash(data.suffix()))), false);
+                                    ctx.getSource().sendSuccess(() -> Component.literal("§7FTB Quests stage: §f")
+                                            .append(HexUtil.fromLegacy(emptyAsDash(
+                                                    FTBQuestsStageBridge.stageText(target))))
+                                            .append(Component.literal(" §8(mode: "
+                                                    + VChatTabConfig.stageDetectionMode() + ")")), false);
                                     ctx.getSource().sendSuccess(() -> Component.literal("§7TAB row: §f")
                                             .append(MessageFormatter.player(VChatTabConfig.tabPlayerFormat(),
                                                     target, data)), false);

@@ -54,7 +54,9 @@ class VChatTabConfigTest {
 
         Path config = directory.resolve("vchat-config.json5");
         String generated = Files.readString(config);
-        assertTrue(generated.contains("\"configVersion\": 12"));
+        assertTrue(generated.contains("\"configVersion\": 13"));
+        assertTrue(generated.contains("\"detectionMode\": \"started\""));
+        assertTrue(generated.contains("questsmetallurgy"));
         assertTrue(generated.contains("\"saveIntervalMillis\": 1000"));
         assertTrue(generated.contains("\"chapters\""));
         assertTrue(generated.contains("\"discord\""));
@@ -62,7 +64,7 @@ class VChatTabConfigTest {
         assertTrue(Files.exists(directory.resolve("vchat-config.json5.last-good")));
 
         String versionSeven = generated
-                .replace("\"configVersion\": 12", "\"configVersion\": 7")
+                .replace("\"configVersion\": 13", "\"configVersion\": 7")
                 .replace("\"cooldownMillis\": 500", "\"cooldownMillis\": 1000");
         Files.writeString(config, versionSeven);
         assertTrue(VChatTabConfig.reload(directory));
