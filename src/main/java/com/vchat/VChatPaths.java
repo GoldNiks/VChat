@@ -25,7 +25,7 @@ public final class VChatPaths {
     }
 
     public static Path configDirectory() {
-        return FMLPaths.GAMEDIR.get().resolve("VMods").resolve("VChat");
+        return FMLPaths.CONFIGDIR.get().resolve("VMods").resolve("VChat");
     }
 
     public static Path legacyForgeConfigDirectory() {
@@ -33,17 +33,25 @@ public final class VChatPaths {
     }
 
     public static Path prepareConfigDirectory() {
-        return prepareConfigDirectory(configDirectory(), legacyForgeConfigDirectory());
+        Path misplacedRootDirectory = FMLPaths.GAMEDIR.get().resolve("VMods").resolve("VChat");
+        return prepareConfigDirectory(configDirectory(), List.of(
+                // Prefer the latest files written by VChat 1.6.2 in the wrong
+                // root location, then fall back to pre-1.6.2 config files.
+                misplacedRootDirectory,
+                legacyForgeConfigDirectory()
+        ));
     }
 
-    static Path prepareConfigDirectory(Path target, Path legacyConfigDirectory) {
+    static Path prepareConfigDirectory(Path target, List<Path> legacyDirectories) {
         try {
             // Never replace or clear VMods: create only VChat's own directory.
             Files.createDirectories(target);
             Path marker = target.resolve(MIGRATION_MARKER);
             if (!Files.exists(marker)) {
-                for (String fileName : LEGACY_FILES) {
-                    migrateIfAbsent(legacyConfigDirectory.resolve(fileName), target.resolve(fileName));
+                for (Path legacyDirectory : legacyDirectories) {
+                    for (String fileName : LEGACY_FILES) {
+                        migrateIfAbsent(legacyDirectory.resolve(fileName), target.resolve(fileName));
+                    }
                 }
                 Files.writeString(marker, "Legacy config migration completed. Safe to keep this file.\n");
             }

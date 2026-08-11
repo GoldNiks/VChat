@@ -18,7 +18,7 @@ public final class FirstJoinManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Type DATA_TYPE = new TypeToken<Set<String>>() { }.getType();
     private static Set<String> knownPlayers = new HashSet<>();
-    private static Path dataFile = Path.of("VMods", "VChat", "vchat-firstjoin.json");
+    private static Path dataFile = Path.of("config", "VMods", "VChat", "vchat-firstjoin.json");
     private static boolean dirty;
     private static long dirtySinceNanos;
 

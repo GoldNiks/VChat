@@ -30,7 +30,7 @@ public class VChatTabConfig {
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
     private static VChatTabConfig instance;
-    private static Path configDir = Path.of("VMods", "VChat");
+    private static Path configDir = Path.of("config", "VMods", "VChat");
 
     public static String header() { ensure(); return instance.tab.header; }
     public static String footer() { ensure(); return instance.tab.footer; }
