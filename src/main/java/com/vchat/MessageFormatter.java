@@ -3,15 +3,15 @@ package com.vchat;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class MessageFormatter {
-    private static final String NAME_MARKER = "\uE000vchat_name\uE001";
-    private static final String DISPLAY_NAME_MARKER = "\uE000vchat_display_name\uE001";
     private static final Pattern PLACEHOLDER = Pattern.compile(
             "<(prefix|suffix|name|display_name|message|group|world|channel|stage|balance|tps)>"
     );
@@ -35,6 +35,8 @@ public final class MessageFormatter {
     private static Component format(String pattern, ServerPlayer player, LuckPermsBridge.PlayerData data,
                                     String message, String channel, boolean enableNameHover) {
         Component hover = enableNameHover ? FTBTeamsBridge.createNameHover(player) : null;
+        HoverEvent hoverEvent = hover == null ? null
+                : new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover);
         String stage = VChatTabConfig.stagesEnabled()
                 && (VChatTabConfig.stagesAppendToSuffix() || patternContainsStage(pattern))
                 ? FTBQuestsStageBridge.stageText(player) : "";
@@ -61,49 +63,53 @@ public final class MessageFormatter {
                 Map.entry("tps", TpsUtil.format(player.getServer().getAverageTickTime()))
         );
 
-        Matcher matcher = PLACEHOLDER.matcher(pattern == null ? "" : pattern);
-        StringBuffer result = new StringBuffer();
-        while (matcher.find()) {
-            String placeholder = matcher.group(1);
-            String replacement = values.get(placeholder);
-            if (hover != null && "name".equals(placeholder)) replacement = NAME_MARKER;
-            if (hover != null && "display_name".equals(placeholder)) replacement = DISPLAY_NAME_MARKER;
-            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
-        }
-        matcher.appendTail(result);
-        Component formatted = HexUtil.fromLegacy(result.toString());
-        if (hover == null) return formatted;
-
-        MutableComponent withNameHover = replaceMarker(formatted, NAME_MARKER,
-                player.getScoreboardName(), hover);
-        return replaceMarker(withNameHover, DISPLAY_NAME_MARKER,
-                player.getDisplayName().getString(), hover);
+        // One pass over the pattern: legacy formatting is parsed continuously
+        // (color state survives across placeholders), placeholders are replaced
+        // in place, and name/display_name pieces get the FTB Teams hover.
+        return formatValues(pattern, values, hoverEvent);
     }
 
-    private static MutableComponent replaceMarker(Component source, String marker,
-                                                   String replacement, Component hover) {
-        MutableComponent result = Component.empty().withStyle(source.getStyle());
-        for (Component sibling : source.getSiblings()) {
-            appendMarkedText(result, sibling.getString(), sibling, marker, replacement, hover);
+    static Component formatValues(String pattern, Map<String, String> values, HoverEvent hoverEvent) {
+        MutableComponent result = Component.empty();
+        String text = pattern == null ? "" : pattern;
+        Style current = Style.EMPTY;
+        Matcher matcher = PLACEHOLDER.matcher(text);
+        int cursor = 0;
+        while (matcher.find()) {
+            current = HexUtil.appendLegacy(result, text, cursor, matcher.start(), current);
+            cursor = matcher.end();
+
+            String key = matcher.group(1);
+            String replacement = values.get(key);
+            if (replacement == null || replacement.isEmpty()) continue;
+
+            int piecesBefore = result.getSiblings().size();
+            if (containsFormatting(replacement)) {
+                current = HexUtil.appendLegacy(result, replacement, current);
+            } else {
+                result.append(Component.literal(replacement).withStyle(current));
+            }
+            if (hoverEvent != null && ("name".equals(key) || "display_name".equals(key))) {
+                List<Component> siblings = result.getSiblings();
+                for (int i = piecesBefore; i < siblings.size(); i++) {
+                    int pieceIndex = i;
+                    siblings.set(pieceIndex, siblings.get(pieceIndex).copy()
+                            .withStyle(style -> style.withHoverEvent(hoverEvent)));
+                }
+            }
         }
+        HexUtil.appendLegacy(result, text, cursor, text.length(), current);
         return result;
     }
 
-    private static void appendMarkedText(MutableComponent target, String text, Component styledSource,
-                                         String marker, String replacement, Component hover) {
-        int from = 0;
-        int markerAt;
-        while ((markerAt = text.indexOf(marker, from)) >= 0) {
-            if (markerAt > from) {
-                target.append(Component.literal(text.substring(from, markerAt)).withStyle(styledSource.getStyle()));
+    private static boolean containsFormatting(String value) {
+        for (int i = 0; i + 1 < value.length(); i++) {
+            char c = value.charAt(i);
+            if ((c == '&' || c == '§') && ("0123456789abcdefklmnor#".indexOf(
+                    Character.toLowerCase(value.charAt(i + 1))) >= 0)) {
+                return true;
             }
-            HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover);
-            target.append(Component.literal(replacement).withStyle(styledSource.getStyle())
-                    .withStyle(style -> style.withHoverEvent(hoverEvent)));
-            from = markerAt + marker.length();
         }
-        if (from < text.length()) {
-            target.append(Component.literal(text.substring(from)).withStyle(styledSource.getStyle()));
-        }
+        return false;
     }
 }

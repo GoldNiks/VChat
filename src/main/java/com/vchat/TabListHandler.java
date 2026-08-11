@@ -85,7 +85,7 @@ public class TabListHandler {
     private static void refreshPlayerTeam(ServerPlayer player, boolean force) {
         boolean sortPlayers = VChatTabConfig.enableTabSorting();
         LuckPermsBridge.PlayerData luckPerms = LuckPermsBridge.read(player);
-String displaySignature = VChatTabConfig.tabPlayerFormat()
+        String displaySignature = VChatTabConfig.tabPlayerFormat()
                 + '|' + luckPerms.prefix() + '|' + luckPerms.suffix()
                 + '|' + luckPerms.primaryGroup() + '|' + luckPerms.groupWeight()
                 + '|' + player.serverLevel().dimension().location()

@@ -2,6 +2,7 @@ package com.vchat;
 
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.MessageArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -20,12 +21,23 @@ public class GLReloadCommand {
                                         "§cVChat config contains an error. Previous settings are still active; see server log."));
                                 return 0;
                             }
-var server = ctx.getSource().getServer();
+                            var server = ctx.getSource().getServer();
                             TabListHandler.refreshAll(server, true);
                             DiscordBridge.reload();
+                            AnnouncementManager.reset();
                             ctx.getSource().sendSuccess(() -> Component.literal("§aVChat config reloaded"), true);
                             return 1;
                         })
+                )
+                .then(Commands.literal("announce")
+                        .then(Commands.argument("message", MessageArgument.message())
+                                .executes(ctx -> {
+                                    String text = MessageArgument.getMessage(ctx, "message").getString();
+                                    AnnouncementManager.broadcast(ctx.getSource().getServer(), text);
+                                    ctx.getSource().sendSuccess(() -> Component.literal(
+                                            "§aAnnouncement sent"), true);
+                                    return 1;
+                                }))
                 )
                 .then(Commands.literal("status")
                         .executes(ctx -> {
@@ -53,6 +65,10 @@ var server = ctx.getSource().getServer();
                                     + VChatTabConfig.ftbTeamsHoverEnabled()), false);
                             ctx.getSource().sendSuccess(() -> Component.literal("§7Death message heads hidden: §f"
                                     + VChatTabConfig.hidePlayerHeadsInDeathMessages()), false);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§7Announcements: §f"
+                                    + VChatTabConfig.announcementsEnabled() + " §7(every "
+                                    + VChatTabConfig.announcementsIntervalSeconds() + " s, "
+                                    + VChatTabConfig.announcementsMessages().size() + " messages)"), false);
                             ctx.getSource().sendSuccess(() -> Component.literal("§7Command arguments in log: §f"
                                     + VChatTabConfig.includeCommandArguments()), false);
                             return 1;

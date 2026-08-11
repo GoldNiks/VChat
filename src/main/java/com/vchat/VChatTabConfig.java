@@ -16,7 +16,7 @@ import java.util.List;
 
 public class VChatTabConfig {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("VChat");
-    private static final int CURRENT_CONFIG_VERSION = 11;
+    private static final int CURRENT_CONFIG_VERSION = 12;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
     public TabSettings tab = new TabSettings();
@@ -26,6 +26,7 @@ public class VChatTabConfig {
     public DeathMessageSettings deathMessages = new DeathMessageSettings();
     public StagesSettings stages = new StagesSettings();
     public DiscordSettings discord = new DiscordSettings();
+    public AnnouncementsSettings announcements = new AnnouncementsSettings();
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
     private static VChatTabConfig instance;
@@ -116,6 +117,15 @@ public class VChatTabConfig {
     public static String discordBotToken() { ensure(); return instance.discord.botToken; }
     public static long discordBotChannelId() { ensure(); return Math.max(0, instance.discord.botChannelId); }
     public static String discordToGameFormat() { ensure(); return instance.discord.discordToGameFormat; }
+    public static boolean announcementsEnabled() { ensure(); return instance.announcements.enabled; }
+    public static int announcementsIntervalSeconds() {
+        ensure();
+        return Math.max(60, Math.min(36000, instance.announcements.intervalSeconds));
+    }
+    public static List<String> announcementsMessages() {
+        ensure();
+        return instance.announcements.messages == null ? List.of() : List.copyOf(instance.announcements.messages);
+    }
     public static boolean hidePlayerHeadsInDeathMessages() {
         ensure();
         return instance.deathMessages.enabled && instance.deathMessages.hidePlayerHeads;
@@ -275,239 +285,172 @@ public class VChatTabConfig {
     }
 
     private static String annotatedJson(VChatTabConfig config) {
+        StringBuilder sb = new StringBuilder("{\n");
+        sb.append(indentBlock(versionJson(config)));
+        sb.append(sectionBlock(tabJson(config))).append(",\n");
+        sb.append(sectionBlock(chatJson(config))).append(",\n");
+        sb.append(sectionBlock(luckPermsJson(config))).append(",\n");
+        sb.append(sectionBlock(ftbTeamsJson(config))).append(",\n");
+        sb.append(sectionBlock(deathMessagesJson(config))).append(",\n");
+        sb.append(sectionBlock(stagesJson(config))).append(",\n");
+        sb.append(sectionBlock(discordJson(config))).append(",\n");
+        sb.append(sectionBlock(announcementsJson(config)));
+        sb.append("}\n");
+        return sb.toString();
+    }
+
+    private static String indentBlock(String body) {
+        return "  " + body.replace("\n", "\n  ").replace("\n  \n", "\n\n").stripTrailing() + "\n";
+    }
+
+    private static String sectionBlock(String body) {
+        return "\n" + indentBlock(body);
+    }
+
+    private static String versionJson(VChatTabConfig config) {
         return """
-                {
-                  // Версия структуры конфига. Не изменяйте вручную.
-                  "configVersion": %d,
+                // Версия структуры конфига. Не изменяйте вручную.
+                "configVersion": %d,
+                """.formatted(CURRENT_CONFIG_VERSION);
+    }
 
-                  // Настройки верхней и нижней части TAB.
-                  "tab": {
-                    // Текст сверху. Новая строка: \\n. Пустая строка: \\n\\n.
-                    // Жёсткого лимита строк нет, но для небольших экранов рекомендуется 2-4 строки.
-                    // Доступны: %%online%%, %%max%%, %%player%%, %%tps%%.
-                    // Цвета: &0-&f, стили: &l &m &n &o &r, HEX: &#RRGGBB.
-                    "header": %s,
-                    // Текст снизу. Переносы, цвета и подстановки работают так же.
-                    // Рекомендуется 1-3 строки, чтобы TAB не выходил за границы экрана.
-                    "footer": %s,
-                    // Личное сообщение игроку после входа на сервер.
-                    "joinMessage": %s,
-                    // Сообщение всем игрокам при самом первом входе нового игрока на сервер.
-                    // Доступен placeholder <name>. UUID всех уже заходивших игроков
-                    // хранятся в config/vchat-firstjoin.json.
-                    "firstJoinMessage": %s,
-                    // Формат строки игрока в TAB.
-                    // Доступны: <prefix>, <suffix>, <name>, <display_name>, <group>, <world>, <stage>, <balance>, <tps>.
-                    "playerFormat": %s,
-                    // Как часто обновлять TAB и данные LuckPerms. 20 тиков = примерно 1 секунда.
-                    "updateIntervalTicks": %d
-                  },
-
-                  // Настройки локального и глобального чата.
-                  "chat": {
-                    // Радиус локального чата в блоках.
-                    "localRadius": %d,
-                    // Включить глобальный чат (!сообщение и команда ниже).
-                    "enableGlobal": %s,
-                    // Включить обычный локальный чат.
-                    "enableLocal": %s,
-                    // Команда глобального чата без символа /. Например: g означает /g сообщение.
-                    // Разрешены строчные a-z, цифры, _, - и :; максимум 32 символа.
-                    // После изменения имени команды требуется перезапуск сервера.
-                    "globalCommand": %s,
-                    // Формат глобального сообщения. Все placeholders перечислены ниже в README.
-                    "globalFormat": %s,
-                    // Формат локального сообщения. Обычно отличается меткой [L].
-                    "localFormat": %s,
-                    // Сообщать отправителю, если рядом никто не услышал локальное сообщение.
-                    "notifyWhenNoOneHeard": %s,
-                    // Текст этого уведомления.
-                    "noOneHeardMessage": %s,
-                    // Сообщение, если игрок пишет в выключенный глобальный чат.
-                    "globalDisabledMessage": %s,
-                    // Сообщение, если выключен локальный чат.
-                    "localDisabledMessage": %s,
-
-                    // Оформление, которое игроки могут писать внутри своих сообщений.
-                    // Операторы с уровнем 2 всегда имеют все разрешения.
-                    "playerFormatting": {
-                      // Главный переключатель форматирования сообщений игроками.
-                      "enabled": %s,
-                      // true разрешает обычные цвета &0-&f всем игрокам.
-                      // false требует LuckPerms permission: vchat.format.color
-                      "colorsForEveryone": %s,
-                      // true разрешает HEX (#RRGGBB, &#RRGGBB, &%%23RRGGBB) всем игрокам.
-                      // false требует permission: vchat.format.hex
-                      "hexForEveryone": %s,
-                      // true разрешает &l, &m, &n, &o и &r всем игрокам.
-                      // false требует permission: vchat.format.style
-                      "stylesForEveryone": %s,
-                      // Эффект &k лучше оставить только администрации.
-                      // false требует permission: vchat.format.obfuscated
-                      "obfuscatedForEveryone": %s
-                    },
-
-                    // Защита от спама. Permission обхода: vchat.antispam.bypass
-                    "antiSpam": {
-                      "enabled": %s,
-                      // Максимальная длина сообщения в символах Unicode.
-                      "maxMessageLength": %d,
-                      // Минимальная задержка между сообщениями в миллисекундах.
-                      "cooldownMillis": %d,
-                      // Запрещать повтор одного и того же сообщения.
-                      "blockRepeatedMessages": %s,
-                      // В течение скольких секунд сообщение считается повтором.
-                      "repeatWindowSeconds": %d,
-                      // В сообщениях доступны <max> и <seconds>.
-                      "tooLongMessage": %s,
-                      "tooFastMessage": %s,
-                      "repeatedMessage": %s,
-                      // Ответ на ! без текста или сообщение только из пробелов.
-                      "emptyMessage": %s
-                    },
-
-                    // Упоминания игроков через @Ник.
-                    "mentions": {
-                      "enabled": %s,
-                      // <name> заменяется точным ником упомянутого игрока.
-                      "highlightFormat": %s,
-                      "playSound": %s,
-                      // Идентификатор звука Minecraft.
-                      "sound": %s,
-                      "volume": %s,
-                      "pitch": %s
-                    },
-
-                    // Постоянный персональный список игнорирования: /ignore <игрок>.
-                    "ignore": {
-                      "enabled": %s,
-                      // В сообщениях доступен <name>.
-                      "addedMessage": %s,
-                      "removedMessage": %s,
-                      "disabledMessage": %s,
-                      "cannotIgnoreSelfMessage": %s,
-                      // В сообщении доступен <count>.
-                      "usageMessage": %s,
-                      "clearedMessage": %s,
-                      // Защита команды /ignore от частых переключений.
-                      "commandCooldownMillis": %d,
-                      // Изменения объединяются и записываются на диск не чаще этого интервала.
-                      "saveIntervalMillis": %d,
-                      "cooldownMessage": %s
-                    },
-
-                    // Безопасное серверное логирование.
-                    "logging": {
-                      "logChatMessages": %s,
-                      "logCommands": %s,
-                      // false записывает только название команды без аргументов.
-                      "includeCommandArguments": %s,
-                      // Аргументы этих команд скрываются всегда.
-                      "redactedCommands": %s
-                    }
-                  },
-
-                  // Интеграция с LuckPerms. Если LuckPerms не установлен, мод продолжит работать без префиксов.
-                  "luckPerms": {
-                    // Показывать префикс LuckPerms перед ником игрока.
-                    "showPrefixes": %s,
-                    // Показывать suffix LuckPerms после ника игрока.
-                    "showSuffixes": %s,
-                    // Сортировать TAB по weight основной группы LuckPerms.
-                    "sortTabByWeight": %s,
-                    // true: больший weight выше. false: меньший weight выше.
-                    "higherWeightFirst": %s
-                  },
-
-                  // Необязательная интеграция с FTB Teams.
-                  // Если FTB Teams не установлен, VChat продолжит работать без hover-подсказки.
-                  "ftbTeams": {
-                    // Показывать сведения о команде при наведении курсора на ник в чате.
-                    "showTeamOnNameHover": %s,
-                    // Отдельные строки подсказки. Название и роль сохраняют оформление FTB Teams.
-                    "showTeamName": %s,
-                    "showPlayerRank": %s,
-                    "showMemberCount": %s,
-                    // true: у игроков без общей/party-команды подсказки не будет.
-                    // false: будет показан текст noTeamText.
-                    "hideHoverWithoutTeam": %s,
-                    // Цвета и стили подписей поддерживают &-коды и HEX.
-                    "teamLabel": %s,
-                    "rankLabel": %s,
-                    "membersLabel": %s,
-                    "noTeamText": %s
-                  },
-
-                  // Обработка ванильных сообщений о смерти игроков.
-                  "deathMessages": {
-                    // Главный переключатель обработки death-компонентов через VChat.
-                    "enabled": %s,
-                    // Убирает головы Chat Heads только у сообщений смерти.
-                    // Текст, перевод, причина смерти и hover предмета сохраняются.
-                    "hidePlayerHeads": %s
-                  },
-
-                  // Текущий этап развития игрока по главам квестов FTB Quests.
-                  // Этап определяется первой в списке главой, все обязательные
-                  // квесты которой игрок полностью выполнил.
-                  "stages": {
-                    // Главный переключатель показа этапа. Без FTB Quests на сервере
-                    // этап просто не определяется, мод работает как раньше.
-                    "enabled": %s,
-                    // true: тег этапа автоматически дописывается в конец <suffix>
-                    // в TAB и чате. false: этап можно вывести вручную через <stage>.
-                    "appendToSuffix": %s,
-                    // Разделитель между суффиксом LuckPerms и тегом этапа.
-                    "separator": %s,
-                    // Список глав сверху вниз: от ранних к поздним. Игроку
-                    // показывается последняя еже полностью пройдённая глава.
-                    // "chapter" - имя файла главы без расширения .snbt,
-                    // "tag" - вывод, поддерживает &-цвета и HEX.
-                    "chapters": %s
-                  },
-
-                  // Интеграция с Discord: webhook-и и бот для моста чата.
-                  // Заменяет отдельный мод MC Chat Link.
-                  "discord": {
-                    // Главный переключатель всей интеграции с Discord.
-                    "enabled": %s,
-                    // Релеить глобальный чат и вход/выход игроков в Discord.
-                    "relayChatToDiscord": %s,
-                    // Webhook, куда идут глобальный чат и вход/выход.
-                    "chatWebhookUrl": %s,
-                    // Webhook для статуса сервера (запуск/остановка).
-                    "statusWebhookUrl": %s,
-                    // Релеить статус сервера.
-                    "relayServerStatus": %s,
-                    // Имя сервера для placeholder {server}.
-                    "serverName": %s,
-                    // Имя и аватар, под которыми публикуют webhook-и.
-                    "webhookUsername": %s,
-                    "webhookAvatarUrl": %s,
-                    // Формат сообщения чата в Discord. Placeholders: {player}, {message}, {server}.
-                    "gameToDiscordFormat": %s,
-                    // Форматы уведомлений. Placeholder: {player} / {server}.
-                    "joinFormat": %s,
-                    "leaveFormat": %s,
-                    "serverStartedFormat": %s,
-                    "serverStoppedFormat": %s,
-
-                    // Бот: Discord -> игра. Требует токен бота и MESSAGE CONTENT INTENT.
-                    "botEnabled": %s,
-                    "botToken": %s,
-                    "botChannelId": %d,
-                    // Показывать сообщения из Discord в игре.
-                    "relayDiscordToGame": %s,
-                    // Формат сообщения из Discord в игре. Placeholders: {username}, {message}.
-                    "discordToGameFormat": %s
-                  }
+    private static String tabJson(VChatTabConfig config) {
+        return """
+                // Настройки верхней и нижней части TAB.
+                "tab": {
+                  // Текст сверху. Новая строка: \\n. Пустая строка: \\n\\n.
+                  // Жёсткого лимита строк нет, но для небольших экранов рекомендуется 2-4 строки.
+                  // Доступны: %%online%%, %%max%%, %%player%%, %%tps%%.
+                  // Цвета: &0-&f, стили: &l &m &n &o &r, HEX: &#RRGGBB.
+                  "header": %s,
+                  // Текст снизу. Переносы, цвета и подстановки работают так же.
+                  // Рекомендуется 1-3 строки, чтобы TAB не выходил за границы экрана.
+                  "footer": %s,
+                  // Личное сообщение игроку после входа на сервер.
+                  "joinMessage": %s,
+                  // Сообщение всем игрокам при самом первом входе нового игрока на сервер.
+                  // Доступен placeholder <name>. UUID всех уже заходивших игроков
+                  // хранятся в config/vchat-firstjoin.json.
+                  "firstJoinMessage": %s,
+                  // Формат строки игрока в TAB.
+                  // Доступны: <prefix>, <suffix>, <name>, <display_name>, <group>, <world>, <stage>, <balance>, <tps>.
+                  "playerFormat": %s,
+                  // Как часто обновлять TAB и данные LuckPerms. 20 тиков = примерно 1 секунда.
+                  "updateIntervalTicks": %d
                 }
-                """.formatted(
-                CURRENT_CONFIG_VERSION, json(config.tab.header), json(config.tab.footer),
+                """.formatted(json(config.tab.header), json(config.tab.footer),
                 json(config.tab.joinMessage), json(config.tab.firstJoinMessage),
                 json(config.tab.playerFormat),
-                Math.max(1, config.tab.updateIntervalTicks), config.chat.localRadius,
-                config.chat.enableGlobal, config.chat.enableLocal, json(config.chat.globalCommand),
+                Math.max(1, config.tab.updateIntervalTicks));
+    }
+
+    private static String chatJson(VChatTabConfig config) {
+        return """
+                // Настройки локального и глобального чата.
+                "chat": {
+                  // Радиус локального чата в блоках.
+                  "localRadius": %d,
+                  // Включить глобальный чат (!сообщение и команда ниже).
+                  "enableGlobal": %s,
+                  // Включить обычный локальный чат.
+                  "enableLocal": %s,
+                  // Команда глобального чата без символа /. Например: g означает /g сообщение.
+                  // Разрешены строчные a-z, цифры, _, - и :; максимум 32 символа.
+                  // После изменения имени команды требуется перезапуск сервера.
+                  "globalCommand": %s,
+                  // Формат глобального сообщения. Все placeholders перечислены ниже в README.
+                  "globalFormat": %s,
+                  // Формат локального сообщения. Обычно отличается меткой [L].
+                  "localFormat": %s,
+                  // Сообщать отправителю, если рядом никто не услышал локальное сообщение.
+                  "notifyWhenNoOneHeard": %s,
+                  // Текст этого уведомления.
+                  "noOneHeardMessage": %s,
+                  // Сообщение, если игрок пишет в выключенный глобальный чат.
+                  "globalDisabledMessage": %s,
+                  // Сообщение, если выключен локальный чат.
+                  "localDisabledMessage": %s,
+
+                  // Оформление, которое игроки могут писать внутри своих сообщений.
+                  // Операторы с уровнем 2 всегда имеют все разрешения.
+                  "playerFormatting": {
+                    // Главный переключатель форматирования сообщений игроками.
+                    "enabled": %s,
+                    // true разрешает обычные цвета &0-&f всем игрокам.
+                    // false требует LuckPerms permission: vchat.format.color
+                    "colorsForEveryone": %s,
+                    // true разрешает HEX (#RRGGBB, &#RRGGBB, &%%23RRGGBB) всем игрокам.
+                    // false требует permission: vchat.format.hex
+                    "hexForEveryone": %s,
+                    // true разрешает &l, &m, &n, &o и &r всем игрокам.
+                    // false требует permission: vchat.format.style
+                    "stylesForEveryone": %s,
+                    // Эффект &k лучше оставить только администрации.
+                    // false требует permission: vchat.format.obfuscated
+                    "obfuscatedForEveryone": %s
+                  },
+
+                  // Защита от спама. Permission обхода: vchat.antispam.bypass
+                  "antiSpam": {
+                    "enabled": %s,
+                    // Максимальная длина сообщения в символах Unicode.
+                    "maxMessageLength": %d,
+                    // Минимальная задержка между сообщениями в миллисекундах.
+                    "cooldownMillis": %d,
+                    // Запрещать повтор одного и того же сообщения.
+                    "blockRepeatedMessages": %s,
+                    // В течение скольких секунд сообщение считается повтором.
+                    "repeatWindowSeconds": %d,
+                    // В сообщениях доступны <max> и <seconds>.
+                    "tooLongMessage": %s,
+                    "tooFastMessage": %s,
+                    "repeatedMessage": %s,
+                    // Ответ на ! без текста или сообщение только из пробелов.
+                    "emptyMessage": %s
+                  },
+
+                  // Упоминания игроков через @Ник.
+                  "mentions": {
+                    "enabled": %s,
+                    // <name> заменяется точным ником упомянутого игрока.
+                    "highlightFormat": %s,
+                    "playSound": %s,
+                    // Идентификатор звука Minecraft.
+                    "sound": %s,
+                    "volume": %s,
+                    "pitch": %s
+                  },
+
+                  // Постоянный персональный список игнорирования: /ignore <игрок>.
+                  "ignore": {
+                    "enabled": %s,
+                    // В сообщениях доступен <name>.
+                    "addedMessage": %s,
+                    "removedMessage": %s,
+                    "disabledMessage": %s,
+                    "cannotIgnoreSelfMessage": %s,
+                    // В сообщении доступен <count>.
+                    "usageMessage": %s,
+                    "clearedMessage": %s,
+                    // Защита команды /ignore от частых переключений.
+                    "commandCooldownMillis": %d,
+                    // Изменения объединяются и записываются на диск не чаще этого интервала.
+                    "saveIntervalMillis": %d,
+                    "cooldownMessage": %s
+                  },
+
+                  // Безопасное серверное логирование.
+                  "logging": {
+                    "logChatMessages": %s,
+                    "logCommands": %s,
+                    // false записывает только название команды без аргументов.
+                    "includeCommandArguments": %s,
+                    // Аргументы этих команд скрываются всегда.
+                    "redactedCommands": %s
+                  }
+                }
+                """.formatted(config.chat.localRadius, config.chat.enableGlobal,
+                config.chat.enableLocal, json(config.chat.globalCommand),
                 json(config.chat.globalFormat), json(config.chat.localFormat),
                 config.chat.notifyWhenNoOneHeard, json(config.chat.noOneHeardMessage),
                 json(config.chat.globalDisabledMessage), json(config.chat.localDisabledMessage),
@@ -527,27 +470,135 @@ public class VChatTabConfig {
                 config.chat.mentions.volume, config.chat.mentions.pitch,
                 config.chat.ignore.enabled, json(config.chat.ignore.addedMessage),
                 json(config.chat.ignore.removedMessage), json(config.chat.ignore.disabledMessage),
-                json(config.chat.ignore.cannotIgnoreSelfMessage),
-                json(config.chat.ignore.usageMessage),
+                json(config.chat.ignore.cannotIgnoreSelfMessage), json(config.chat.ignore.usageMessage),
                 json(config.chat.ignore.clearedMessage),
                 Math.max(0, config.chat.ignore.commandCooldownMillis),
                 Math.max(50, config.chat.ignore.saveIntervalMillis),
                 json(config.chat.ignore.cooldownMessage),
                 config.chat.logging.logChatMessages, config.chat.logging.logCommands,
                 config.chat.logging.includeCommandArguments,
-                GSON.toJson(config.chat.logging.redactedCommands),
-                config.luckPerms.showPrefixes, config.luckPerms.showSuffixes,
-                config.luckPerms.sortTabByWeight,
-                config.luckPerms.higherWeightFirst,
-                config.ftbTeams.showTeamOnNameHover,
+                GSON.toJson(config.chat.logging.redactedCommands));
+    }
+
+    private static String luckPermsJson(VChatTabConfig config) {
+        return """
+                // Интеграция с LuckPerms. Если LuckPerms не установлен, мод продолжит работать без префиксов.
+                "luckPerms": {
+                  // Показывать префикс LuckPerms перед ником игрока.
+                  "showPrefixes": %s,
+                  // Показывать suffix LuckPerms после ника игрока.
+                  "showSuffixes": %s,
+                  // Сортировать TAB по weight основной группы LuckPerms.
+                  "sortTabByWeight": %s,
+                  // true: больший weight выше. false: меньший weight выше.
+                  "higherWeightFirst": %s
+                }
+                """.formatted(config.luckPerms.showPrefixes, config.luckPerms.showSuffixes,
+                config.luckPerms.sortTabByWeight, config.luckPerms.higherWeightFirst);
+    }
+
+    private static String ftbTeamsJson(VChatTabConfig config) {
+        return """
+                // Необязательная интеграция с FTB Teams.
+                // Если FTB Teams не установлен, VChat продолжит работать без hover-подсказки.
+                "ftbTeams": {
+                  // Показывать сведения о команде при наведении курсора на ник в чате.
+                  "showTeamOnNameHover": %s,
+                  // Отдельные строки подсказки. Название и роль сохраняют оформление FTB Teams.
+                  "showTeamName": %s,
+                  "showPlayerRank": %s,
+                  "showMemberCount": %s,
+                  // true: у игроков без общей/party-команды подсказки не будет.
+                  // false: будет показан текст noTeamText.
+                  "hideHoverWithoutTeam": %s,
+                  // Цвета и стили подписей поддерживают &-коды и HEX.
+                  "teamLabel": %s,
+                  "rankLabel": %s,
+                  "membersLabel": %s,
+                  "noTeamText": %s
+                }
+                """.formatted(config.ftbTeams.showTeamOnNameHover,
                 config.ftbTeams.showTeamName, config.ftbTeams.showPlayerRank,
                 config.ftbTeams.showMemberCount, config.ftbTeams.hideHoverWithoutTeam,
                 json(config.ftbTeams.teamLabel), json(config.ftbTeams.rankLabel),
-                json(config.ftbTeams.membersLabel), json(config.ftbTeams.noTeamText),
-                config.deathMessages.enabled, config.deathMessages.hidePlayerHeads,
-                config.stages.enabled, config.stages.appendToSuffix,
-                json(config.stages.separator), GSON.toJson(config.stages.chapters),
-                config.discord.enabled, config.discord.relayChatToDiscord,
+                json(config.ftbTeams.membersLabel), json(config.ftbTeams.noTeamText));
+    }
+
+    private static String deathMessagesJson(VChatTabConfig config) {
+        return """
+                // Обработка ванильных сообщений о смерти игроков.
+                "deathMessages": {
+                  // Главный переключатель обработки death-компонентов через VChat.
+                  "enabled": %s,
+                  // Убирает головы Chat Heads только у сообщений смерти.
+                  // Текст, перевод, причина смерти и hover предмета сохраняются.
+                  "hidePlayerHeads": %s
+                }
+                """.formatted(config.deathMessages.enabled, config.deathMessages.hidePlayerHeads);
+    }
+
+    private static String stagesJson(VChatTabConfig config) {
+        return """
+                // Текущий этап развития игрока по главам квестов FTB Quests.
+                // Этап определяется первой в списке главой, все обязательные
+                // квесты которой игрок полностью выполнил.
+                "stages": {
+                  // Главный переключатель показа этапа. Без FTB Quests на сервере
+                  // этап просто не определяется, мод работает как раньше.
+                  "enabled": %s,
+                  // true: тег этапа автоматически дописывается в конец <suffix>
+                  // в TAB и чате. false: этап можно вывести вручную через <stage>.
+                  "appendToSuffix": %s,
+                  // Разделитель между суффиксом LuckPerms и тегом этапа.
+                  "separator": %s,
+                  // Список глав сверху вниз: от ранних к поздним. Игроку
+                  // показывается последняя еже полностью пройдённая глава.
+                  // "chapter" - имя файла главы без расширения .snbt,
+                  // "tag" - вывод, поддерживает &-цвета и HEX.
+                  "chapters": %s
+                }
+                """.formatted(config.stages.enabled, config.stages.appendToSuffix,
+                json(config.stages.separator), GSON.toJson(config.stages.chapters));
+    }
+
+    private static String discordJson(VChatTabConfig config) {
+        return """
+                // Интеграция с Discord: webhook-и и бот для моста чата.
+                // Заменяет отдельный мод MC Chat Link.
+                "discord": {
+                  // Главный переключатель всей интеграции с Discord.
+                  "enabled": %s,
+                  // Релеить глобальный чат и вход/выход игроков в Discord.
+                  "relayChatToDiscord": %s,
+                  // Webhook, куда идут глобальный чат и вход/выход.
+                  "chatWebhookUrl": %s,
+                  // Webhook для статуса сервера (запуск/остановка).
+                  "statusWebhookUrl": %s,
+                  // Релеить статус сервера.
+                  "relayServerStatus": %s,
+                  // Имя сервера для placeholder {server}.
+                  "serverName": %s,
+                  // Имя и аватар, под которыми публикуют webhook-и.
+                  "webhookUsername": %s,
+                  "webhookAvatarUrl": %s,
+                  // Формат сообщения чата в Discord. Placeholders: {player}, {message}, {server}.
+                  "gameToDiscordFormat": %s,
+                  // Форматы уведомлений. Placeholder: {player} / {server}.
+                  "joinFormat": %s,
+                  "leaveFormat": %s,
+                  "serverStartedFormat": %s,
+                  "serverStoppedFormat": %s,
+
+                  // Бот: Discord -> игра. Требует токен бота и MESSAGE CONTENT INTENT.
+                  "botEnabled": %s,
+                  "botToken": %s,
+                  "botChannelId": %d,
+                  // Показывать сообщения из Discord в игре.
+                  "relayDiscordToGame": %s,
+                  // Формат сообщения из Discord в игре. Placeholders: {username}, {message}.
+                  "discordToGameFormat": %s
+                }
+                """.formatted(config.discord.enabled, config.discord.relayChatToDiscord,
                 json(config.discord.chatWebhookUrl), json(config.discord.statusWebhookUrl),
                 config.discord.relayServerStatus, json(config.discord.serverName),
                 json(config.discord.webhookUsername), json(config.discord.webhookAvatarUrl),
@@ -557,6 +608,23 @@ public class VChatTabConfig {
                 config.discord.botEnabled, json(config.discord.botToken),
                 Math.max(0, config.discord.botChannelId), config.discord.relayDiscordToGame,
                 json(config.discord.discordToGameFormat));
+    }
+
+    private static String announcementsJson(VChatTabConfig config) {
+        return """
+                // Автоматические объявления в чат.
+                "announcements": {
+                  // Главный переключатель автоматических объявлений.
+                  "enabled": %s,
+                  // Как часто показывать объявление, в секундах. Диапазон 60-36000.
+                  "intervalSeconds": %d,
+                  // Список фраз, показываются в случайном порядке без повторов подряд.
+                  // Поддерживают &-цвета и кликабельные ссылки [текст](https://url).
+                  "messages": %s
+                }
+                """.formatted(config.announcements.enabled,
+                Math.max(60, Math.min(36000, config.announcements.intervalSeconds)),
+                GSON.toJson(config.announcements.messages));
     }
 
     private static String json(String value) {
@@ -615,6 +683,10 @@ public class VChatTabConfig {
         if (instance.discord.discordToGameFormat == null) {
             instance.discord.discordToGameFormat = defaultDiscord.discordToGameFormat;
         }
+        if (instance.announcements == null) instance.announcements = new AnnouncementsSettings();
+        if (instance.announcements.messages == null) instance.announcements.messages = new ArrayList<>();
+        instance.announcements.messages.removeIf(message -> message == null || message.isBlank());
+        instance.announcements.intervalSeconds = Math.max(60, Math.min(36000, instance.announcements.intervalSeconds));
         if (instance.chat.playerFormatting == null) {
             instance.chat.playerFormatting = new PlayerFormattingSettings();
         }
@@ -1005,5 +1077,18 @@ public class VChatTabConfig {
         public boolean relayDiscordToGame = true;
         // Формат сообщения из Discord в игре. Placeholders: {username}, {message}.
         public String discordToGameFormat = "&8[Discord] &7{username}&8: &f{message}";
+    }
+
+    public static final class AnnouncementsSettings {
+        // Главный переключатель автоматических объявлений.
+        public boolean enabled = true;
+        // Как часто показывать объявление, в секундах. Диапазон 60-36000.
+        public int intervalSeconds = 600;
+        // Список фраз, показываются в случайном порядке без повторов подряд.
+        // Поддерживают &-цвета и кликабельные ссылки [текст](https://url).
+        public List<String> messages = new ArrayList<>(List.of(
+                "&eСайт сервера: &f[valorcraft.ru](https://valorcraft.ru) &7| &f[Правила](https://valorcraft.ru/rules)",
+                "&eDiscord: &f[discord.gg](https://discord.gg/mzCtnkJA7S)",
+                "&eНужна помощь? &fЗадай вопрос администрации через &a/ask"));
     }
 }
