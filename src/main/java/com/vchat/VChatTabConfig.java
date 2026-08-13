@@ -16,7 +16,7 @@ import java.util.List;
 
 public class VChatTabConfig {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("VChat");
-    private static final int CURRENT_CONFIG_VERSION = 17;
+    private static final int CURRENT_CONFIG_VERSION = 18;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
     public TabSettings tab = new TabSettings();
@@ -116,7 +116,6 @@ public class VChatTabConfig {
     public static String discordPlayerUsernameFormat() { ensure(); return instance.discord.playerUsernameFormat; }
     public static boolean discordUseValorCraftSkinsAvatar() { ensure(); return instance.discord.useValorCraftSkinsAvatar; }
     public static String discordValorCraftSkinsApiUrl() { ensure(); return instance.discord.valorCraftSkinsApiUrl; }
-    public static String discordSkinHeadUrlTemplate() { ensure(); return instance.discord.skinHeadUrlTemplate; }
     public static String discordGameToDiscordFormat() { ensure(); return instance.discord.gameToDiscordFormat; }
     public static String discordJoinFormat() { ensure(); return instance.discord.joinFormat; }
     public static String discordLeaveFormat() { ensure(); return instance.discord.leaveFormat; }
@@ -622,9 +621,7 @@ public class VChatTabConfig {
                   "useValorCraftSkinsAvatar": %s,
                   // API ValorCraftSkins. Placeholder {player} кодируется автоматически.
                   "valorCraftSkinsApiUrl": %s,
-                  // Преобразование полного PNG скина в квадратную голову для Discord.
-                  // {skinUrl} заменяется ссылкой из API; обычно менять этот шаблон не требуется.
-                  "skinHeadUrlTemplate": %s,
+                  // VChat использует готовое поле head.url из API; картинки в памяти сервера не хранятся.
                   // Формат сообщения чата в Discord. Placeholders: {player}, {message}, {server}.
                   "gameToDiscordFormat": %s,
                   // Форматы уведомлений. Placeholder: {player} / {server}.
@@ -648,7 +645,6 @@ public class VChatTabConfig {
                 json(config.discord.webhookUsername), json(config.discord.webhookAvatarUrl),
                 config.discord.usePlayerIdentity, json(config.discord.playerUsernameFormat),
                 config.discord.useValorCraftSkinsAvatar, json(config.discord.valorCraftSkinsApiUrl),
-                json(config.discord.skinHeadUrlTemplate),
                 json(config.discord.gameToDiscordFormat),
                 json(config.discord.joinFormat), json(config.discord.leaveFormat),
                 json(config.discord.serverStartedFormat), json(config.discord.serverStoppedFormat),
@@ -728,11 +724,13 @@ public class VChatTabConfig {
         if (instance.discord.playerUsernameFormat == null || instance.discord.playerUsernameFormat.isBlank()) {
             instance.discord.playerUsernameFormat = defaultDiscord.playerUsernameFormat;
         }
-        if (instance.discord.valorCraftSkinsApiUrl == null || instance.discord.valorCraftSkinsApiUrl.isBlank()) {
+        if (instance.discord.valorCraftSkinsApiUrl == null
+                || instance.discord.valorCraftSkinsApiUrl.isBlank()
+                || instance.discord.valorCraftSkinsApiUrl.equals(
+                        "https://valorcraft.ru/api/v1/skinapi/?name={player}")
+                || instance.discord.valorCraftSkinsApiUrl.equals(
+                        "https://valorcraft.ru/api/v1/skinapi/?name={player}&head=1")) {
             instance.discord.valorCraftSkinsApiUrl = defaultDiscord.valorCraftSkinsApiUrl;
-        }
-        if (instance.discord.skinHeadUrlTemplate == null || instance.discord.skinHeadUrlTemplate.isBlank()) {
-            instance.discord.skinHeadUrlTemplate = defaultDiscord.skinHeadUrlTemplate;
         }
         if (instance.discord.gameToDiscordFormat == null) {
             instance.discord.gameToDiscordFormat = defaultDiscord.gameToDiscordFormat;
@@ -1164,8 +1162,7 @@ public class VChatTabConfig {
         public boolean usePlayerIdentity = true;
         public String playerUsernameFormat = "🎮 {player} | Minecraft";
         public boolean useValorCraftSkinsAvatar = true;
-        public String valorCraftSkinsApiUrl = "https://valorcraft.ru/api/v1/skinapi/?name={player}";
-        public String skinHeadUrlTemplate = "https://images.weserv.nl/?url={skinUrl}&cx=8&cy=8&cw=8&ch=8&precrop&w=128&h=128&fit=fill&output=png";
+        public String valorCraftSkinsApiUrl = "https://valorcraft.ru/api/v1/skinapi/head.php?name={player}";
         // Формат сообщения чата в Discord. Placeholders: {player}, {message}, {server}.
         public String gameToDiscordFormat = "{message}";
         // Форматы уведомлений. Placeholder: {player} / {server}.
