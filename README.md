@@ -44,7 +44,7 @@
 
 ```json5
 {
-  "configVersion": 15,
+  "configVersion": 16,
 
   "tab": {
     "header": "...",
@@ -173,16 +173,16 @@
     "relayServerStatus": true,
     "serverName": "ValorCraft",
     "webhookUsername": "ValorCraft",
-    "webhookAvatarUrl": "",
+    "webhookAvatarUrl": "https://example.com/valorcraft.png",
     "gameToDiscordFormat": "**{player}**: {message}",
     "joinFormat": "**{player}** вошёл на сервер",
     "leaveFormat": "**{player}** вышел с сервера",
     "serverStartedFormat": "🟢 Сервер запущен | {server}",
     "serverStoppedFormat": "🔴 Сервер остановлен | {server}",
 
-    "botEnabled": false,
-    "botToken": "",
-    "botChannelId": 0,
+    "botEnabled": true,
+    "botToken": "ТОКЕН_БОТА",
+    "botChannelId": 123456789012345678,
     "relayDiscordToGame": true,
     "discordToGameFormat": "&8[Discord] &7{username}&8: &f{message}"
   },
@@ -202,7 +202,7 @@
 
 После изменения выполните `/vchat reload`. Изменение `globalCommand` требует полного перезапуска, потому что команда регистрируется при запуске сервера.
 
-Конфиги старых версий автоматически обновляются до `configVersion: 15` с сохранением настроек. При первом запуске этой версии файлы VChat сначала копируются из ошибочного пути `<корень>/VMods/VChat/`, затем — из старой папки `config/`, но только если одноимённого файла в `config/VMods/VChat/` ещё нет. После этого создаётся служебный маркер `.legacy-config-migrated`, и миграция больше не повторяется. Старые файлы не удаляются и остаются резервной копией; файлы других модов не копируются и не изменяются. Последняя проверенная конфигурация хранится в `vchat-config.json5.last-good`: при синтаксической ошибке `/vchat reload` отклонит новый файл и продолжит использовать рабочие настройки, а после перезапуска сможет восстановиться из этой копии.
+Конфиги старых версий автоматически обновляются до `configVersion: 16` с сохранением настроек. При первом запуске этой версии файлы VChat сначала копируются из ошибочного пути `<корень>/VMods/VChat/`, затем — из старой папки `config/`, но только если одноимённого файла в `config/VMods/VChat/` ещё нет. После этого создаётся служебный маркер `.legacy-config-migrated`, и миграция больше не повторяется. Старые файлы не удаляются и остаются резервной копией; файлы других модов не копируются и не изменяются. Последняя проверенная конфигурация хранится в `vchat-config.json5.last-good`: при синтаксической ошибке `/vchat reload` отклонит новый файл и продолжит использовать рабочие настройки, а после перезапуска сможет восстановиться из этой копии.
 
 ## FTB Teams hover
 
@@ -273,7 +273,7 @@
 
 ## Установка
 
-1. Поместить `VChat-1.6.10.jar` в `mods/` сервера Forge 1.20.1.
+1. Поместить `VChat-1.6.11.jar` в `mods/` сервера Forge 1.20.1.
 2. Установить LuckPerms, если нужны префиксы, permissions и сортировка.
 3. Перезапустить сервер.
 4. Настроить `config/VMods/VChat/vchat-config.json5` и выполнить `/vchat reload`.

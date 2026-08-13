@@ -54,7 +54,7 @@ class VChatTabConfigTest {
 
         Path config = directory.resolve("vchat-config.json5");
         String generated = Files.readString(config);
-        assertTrue(generated.contains("\"configVersion\": 15"));
+        assertTrue(generated.contains("\"configVersion\": 16"));
         assertTrue(generated.contains("\"detectionMode\": \"started\""));
         assertTrue(generated.contains("\"quests\": []"));
         assertTrue(generated.contains("ВАШ_ID_ИЗ_SNBT"));
@@ -66,7 +66,7 @@ class VChatTabConfigTest {
         assertTrue(Files.exists(directory.resolve("vchat-config.json5.last-good")));
 
         String versionSeven = generated
-                .replace("\"configVersion\": 15", "\"configVersion\": 7")
+                .replace("\"configVersion\": 16", "\"configVersion\": 7")
                 .replace("\"cooldownMillis\": 500", "\"cooldownMillis\": 1000");
         Files.writeString(config, versionSeven);
         assertTrue(VChatTabConfig.reload(directory));
@@ -83,7 +83,7 @@ class VChatTabConfigTest {
         assertTrue(VChatTabConfig.reload(directory));
         Path config = directory.resolve("vchat-config.json5");
         String generated = Files.readString(config)
-                .replace("\"configVersion\": 15", "\"configVersion\": 14")
+                .replace("\"configVersion\": 16", "\"configVersion\": 14")
                 .replace("\"chatWebhookUrl\": \"\"",
                         "\"chatWebhookUrl\": \"https://discord.com/api/webhooks/current\"");
         Files.writeString(config, generated);

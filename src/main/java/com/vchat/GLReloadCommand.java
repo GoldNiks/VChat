@@ -76,6 +76,10 @@ public class GLReloadCommand {
                                     + VChatTabConfig.discordRelayChatToDiscord()), false);
                             ctx.getSource().sendSuccess(() -> Component.literal("§7Discord chat webhook configured: §f"
                                     + !VChatTabConfig.discordChatWebhookUrl().isBlank()), false);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§7Discord bot (Discord -> game): §f"
+                                    + DiscordBridge.botStatus()), false);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§7Discord webhook avatar configured: §f"
+                                    + !VChatTabConfig.discordWebhookAvatarUrl().isBlank()), false);
                             ctx.getSource().sendSuccess(() -> Component.literal("§7Command arguments in log: §f"
                                     + VChatTabConfig.includeCommandArguments()), false);
                             return 1;

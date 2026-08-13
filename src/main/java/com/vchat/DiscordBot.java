@@ -35,6 +35,7 @@ public final class DiscordBot {
     private ScheduledFuture<?> heartbeatTask;
     private volatile int lastSeq;
     private volatile int reconnectAttempts;
+    private volatile String status = "starting";
 
     public DiscordBot(String token, long channelId, MinecraftServer server) {
         this.token = token;
@@ -52,6 +53,7 @@ public final class DiscordBot {
     }
 
     public void stop() {
+        status = "stopped";
         reconnectAttempts = MAX_RECONNECT_ATTEMPTS;
         stopHeartbeat();
         WebSocket socket = ws;
@@ -64,6 +66,7 @@ public final class DiscordBot {
 
     private void connect() {
         try {
+            status = "connecting";
             if (httpClient == null) httpClient = HttpClient.newHttpClient();
             httpClient.newWebSocketBuilder()
                     .buildAsync(URI.create(GATEWAY_URL), new BotListener())
@@ -72,11 +75,13 @@ public final class DiscordBot {
                         reconnectAttempts = 0;
                     })
                     .exceptionally(error -> {
+                        status = "connection_failed";
                         LOGGER.error("Discord bot: failed to connect", error);
                         scheduleReconnect();
                         return null;
                     });
         } catch (Exception e) {
+            status = "connection_failed";
             LOGGER.error("Discord bot: failed to connect", e);
             scheduleReconnect();
         }
@@ -136,6 +141,7 @@ public final class DiscordBot {
             return;
         }
         reconnectAttempts++;
+        status = "reconnecting";
         int delaySeconds = (int) (Math.pow(2, reconnectAttempts) * 5);
         LOGGER.info("Discord bot: reconnecting in {}s (attempt {}/{})",
                 delaySeconds, reconnectAttempts, MAX_RECONNECT_ATTEMPTS);
@@ -149,6 +155,7 @@ public final class DiscordBot {
                     .getAsJsonObject("user")
                     .get("username").getAsString();
             LOGGER.info("Discord bot: authenticated as '{}'", username);
+            status = "connected_as_" + username;
         } else if ("MESSAGE_CREATE".equals(type)) {
             handleMessageCreate(payload.getAsJsonObject("d"));
         }
@@ -165,19 +172,27 @@ public final class DiscordBot {
         String content = message.get("content").getAsString();
         if (content.isEmpty()) return;
 
-        JsonElement globalName = message.getAsJsonObject("author").get("global_name");
-        String username;
-        if (globalName != null && !globalName.getAsString().isEmpty()) {
-            username = globalName.getAsString();
-        } else {
-            username = message.getAsJsonObject("author").get("username").getAsString();
-        }
+        String username = resolveUsername(message.getAsJsonObject("author"));
 
         String formatted = VChatTabConfig.discordToGameFormat()
                 .replace("{username}", username)
                 .replace("{message}", content);
         Component component = HexUtil.fromLegacy(formatted);
         server.execute(() -> server.getPlayerList().broadcastSystemMessage(component, false));
+        LOGGER.debug("Discord bot: relayed message from '{}' into Minecraft", username);
+    }
+
+    public String status() {
+        return status;
+    }
+
+    static String resolveUsername(JsonObject author) {
+        JsonElement globalName = author.get("global_name");
+        if (globalName != null && !globalName.isJsonNull() && !globalName.getAsString().isBlank()) {
+            return globalName.getAsString();
+        }
+        JsonElement username = author.get("username");
+        return username == null || username.isJsonNull() ? "Discord" : username.getAsString();
     }
 
     private void handleHello(JsonObject payload) {
@@ -232,13 +247,18 @@ public final class DiscordBot {
         @Override
         public void onError(WebSocket webSocket, Throwable error) {
             if (ws != webSocket) return;
+            ws = null;
+            status = "connection_error";
             stopHeartbeat();
+            LOGGER.error("Discord bot: gateway connection error", error);
+            scheduleReconnect();
         }
 
         @Override
         public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
             if (ws != webSocket) return null;
             ws = null;
+            status = "disconnected_" + statusCode;
             stopHeartbeat();
             if (statusCode == 1000 && reconnectAttempts == 0) {
                 LOGGER.warn("Discord bot: disconnected (1000) - check that MESSAGE CONTENT INTENT is enabled "

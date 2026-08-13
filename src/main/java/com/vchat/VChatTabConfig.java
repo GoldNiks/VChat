@@ -16,7 +16,7 @@ import java.util.List;
 
 public class VChatTabConfig {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("VChat");
-    private static final int CURRENT_CONFIG_VERSION = 15;
+    private static final int CURRENT_CONFIG_VERSION = 16;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
     public TabSettings tab = new TabSettings();
@@ -599,6 +599,8 @@ public class VChatTabConfig {
                   // Имя сервера для placeholder {server}.
                   "serverName": %s,
                   // Имя и аватар, под которыми публикуют webhook-и.
+                  // Для аватара нужна прямая публичная ссылка на PNG/JPG, например https://site.ru/logo.png.
+                  // Пустая строка использует аватар, установленный у webhook в самом Discord.
                   "webhookUsername": %s,
                   "webhookAvatarUrl": %s,
                   // Формат сообщения чата в Discord. Placeholders: {player}, {message}, {server}.

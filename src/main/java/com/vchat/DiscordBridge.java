@@ -76,6 +76,14 @@ public class DiscordBridge {
         startBot();
     }
 
+    public static String botStatus() {
+        if (!VChatTabConfig.discordEnabled()) return "discord_disabled";
+        if (!VChatTabConfig.discordBotEnabled()) return "disabled";
+        if (VChatTabConfig.discordBotToken().isBlank()) return "token_missing";
+        if (VChatTabConfig.discordBotChannelId() <= 0) return "channel_missing";
+        return bot == null ? "not_started" : bot.status();
+    }
+
     private static void relayPlayerEvent(String format, ServerPlayer player) {
         if (!VChatTabConfig.discordRelayChatToDiscord()) return;
         String text = format.replace("{player}", player.getGameProfile().getName());
