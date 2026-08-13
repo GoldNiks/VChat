@@ -65,9 +65,18 @@ public class DiscordBridge {
                 .replace("{player}", player.getGameProfile().getName())
                 .replace("{message}", plainMessage)
                 .replace("{server}", VChatTabConfig.discordServerName());
-        DiscordWebhook.send(VChatTabConfig.discordChatWebhookUrl(), text,
-                VChatTabConfig.discordWebhookUsername(),
-                VChatTabConfig.discordWebhookAvatarUrl());
+        String playerName = player.getGameProfile().getName();
+        if (VChatTabConfig.discordUsePlayerIdentity()) {
+            String webhookName = VChatTabConfig.discordPlayerUsernameFormat()
+                    .replace("{player}", playerName)
+                    .replace("{server}", VChatTabConfig.discordServerName());
+            DiscordWebhook.sendPlayer(VChatTabConfig.discordChatWebhookUrl(), text,
+                    webhookName, VChatTabConfig.discordWebhookAvatarUrl(), playerName);
+        } else {
+            DiscordWebhook.send(VChatTabConfig.discordChatWebhookUrl(), text,
+                    VChatTabConfig.discordWebhookUsername(),
+                    VChatTabConfig.discordWebhookAvatarUrl());
+        }
     }
 
     /** Restarts the bot so config changes take effect. Call after /vchat reload. */

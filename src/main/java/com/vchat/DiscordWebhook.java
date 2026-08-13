@@ -34,6 +34,15 @@ public final class DiscordWebhook {
         CompletableFuture.runAsync(() -> doSend(url, content, username, avatarUrl), POOL);
     }
 
+    public static void sendPlayer(String url, String content, String username,
+                                  String fallbackAvatarUrl, String playerName) {
+        if (url == null || url.isBlank()) return;
+        CompletableFuture.runAsync(() -> {
+            String avatarUrl = ValorCraftSkinsAvatar.resolve(playerName, fallbackAvatarUrl);
+            doSend(url, content, username, avatarUrl);
+        }, POOL);
+    }
+
     public static void sendSync(String url, String content, String username, String avatarUrl) {
         if (url == null || url.isBlank()) return;
         doSend(url, content, username, avatarUrl);
